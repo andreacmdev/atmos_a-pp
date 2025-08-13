@@ -3,7 +3,7 @@ import 'package:http/http.dart' as http;
 import '../models/adolescente.dart';
 
 class GoogleSheetsApi {
-  static const String baseUrl = 'https://script.google.com/macros/s/SEU_DEPLOY_URL/exec';
+  static const String baseUrl = 'https://script.google.com/macros/s/AKfycbx8RS9M-7Jl1k6SQcRqSj-16ecIlxZ7brWiN5MZVNSV24_4W368w2U1zICDL0JruZbi/exec';
 
   /// Busca a lista de adolescentes cadastrados na planilha
   static Future<List<Adolescente>> fetchAdolescentes() async {
