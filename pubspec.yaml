@@ -1,4 +1,4 @@
-name: atmos_app
+name: Atmos
 description: "A new Flutter project."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
@@ -41,6 +41,12 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  flutter_launcher_icons: ^0.13.1
+
+flutter_icons:
+  android: true
+  ios: true
+  image_path: "assets/gestao.png"
 
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is
@@ -63,7 +69,8 @@ flutter:
     - assets/PERFIL.png
     - assets/LOGO.png
     - assets/topbar.png
-    - assets/ATMOS.png  
+    - assets/ATMOS.png
+    - assets/gestao.png  
 
   # To add assets to your application, add an assets section, like this:
   # assets:
