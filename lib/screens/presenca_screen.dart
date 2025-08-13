@@ -14,8 +14,10 @@ class PresencaScreen extends StatefulWidget {
 
 class _PresencaScreenState extends State<PresencaScreen> {
   List<Adolescente> lista = [];
-  Set<String> presencas = {};
-  bool carregando = true;
+  final Set<String> registrados = {};
+  final Set<String> carregandoIds = {};
+  bool carregandoLista = true;
+
   final dataCulto = DateFormat('yyyy-MM-dd').format(DateTime.now());
 
   @override
@@ -29,54 +31,53 @@ class _PresencaScreenState extends State<PresencaScreen> {
       final dados = await GoogleSheetsApi.fetchAdolescentes();
       setState(() {
         lista = dados;
-        carregando = false;
+        carregandoLista = false;
       });
     } catch (e) {
-      debugPrint('Erro ao carregar: $e');
-      setState(() {
-        carregando = false;
-      });
+      setState(() => carregandoLista = false);
+      _showSnack('Erro ao carregar lista. Tente novamente.');
     }
   }
 
-  void togglePresenca(String id) {
-    setState(() {
-      if (presencas.contains(id)) {
-        presencas.remove(id);
-      } else {
-        presencas.add(id);
-      }
-    });
-  }
+  Future<void> _registrarUm(String id, String nome) async {
+    if (registrados.contains(id) || carregandoIds.contains(id)) return;
 
-  Future<void> salvarPresencas() async {
-    if (presencas.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Selecione pelo menos 1 presença.')),
-      );
-      return;
-    }
+    setState(() => carregandoIds.add(id));
 
-    for (var id in presencas) {
+    try {
       await GoogleSheetsApi.registrarPresenca(
         idAdolescente: id,
         dataCulto: dataCulto,
-        tipoEvento: widget.tipoEvento.apiValue, // já enviando para futuro
+        tipoEvento: widget.tipoEvento.apiValue,
+      );
+
+      setState(() {
+        carregandoIds.remove(id);
+        registrados.add(id);
+      });
+
+      _showSnack('Registrado: $nome (${widget.tipoEvento.label})');
+    } catch (e) {
+      setState(() => carregandoIds.remove(id));
+      _showSnack(
+        'Falha ao registrar $nome. Tentar novamente?',
+        action: SnackBarAction(
+          label: 'TENTAR',
+          onPressed: () => _registrarUm(id, nome),
+        ),
       );
     }
+  }
 
+  void _showSnack(String msg, {SnackBarAction? action}) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Presenças salvas para ${widget.tipoEvento.label}!')),
+      SnackBar(content: Text(msg), action: action),
     );
-
-    setState(() {
-      presencas.clear();
-    });
   }
 
   @override
   Widget build(BuildContext context) {
-    if (carregando) {
+    if (carregandoLista) {
       return const Scaffold(
         body: Center(child: CircularProgressIndicator()),
       );
@@ -84,38 +85,38 @@ class _PresencaScreenState extends State<PresencaScreen> {
 
     return Scaffold(
       appBar: AppBar(title: Text('Marcar Presença — ${widget.tipoEvento.label}')),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-            child: Row(
-              children: [
-                const Icon(Icons.calendar_month),
-                const SizedBox(width: 8),
-                Text('Data: $dataCulto', style: const TextStyle(fontWeight: FontWeight.w600)),
-              ],
+      body: ListView.separated(
+        padding: const EdgeInsets.only(bottom: 12),
+        itemBuilder: (context, i) {
+          final a = lista[i];
+          final isLoading = carregandoIds.contains(a.id);
+          final isDone = registrados.contains(a.id);
+
+          return ListTile(
+            title: Text(a.nome),
+            leading: isDone
+                ? const Icon(Icons.check_circle, color: Colors.green)
+                : (isLoading
+                    ? const SizedBox(
+                        width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2))
+                    : const Icon(Icons.person_outline)),
+            trailing: Checkbox(
+              value: isDone,
+              onChanged: (val) {
+                if (!isDone && !isLoading) {
+                  _registrarUm(a.id, a.nome);
+                }
+              },
             ),
-          ),
-          Expanded(
-            child: ListView(
-              children: lista.map((adolescente) {
-                return CheckboxListTile(
-                  title: Text(adolescente.nome),
-                  value: presencas.contains(adolescente.id),
-                  onChanged: (_) => togglePresenca(adolescente.id),
-                );
-              }).toList(),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: FilledButton.icon(
-              icon: const Icon(Icons.save),
-              label: const Text('Salvar Presenças'),
-              onPressed: salvarPresencas,
-            ),
-          )
-        ],
+            onTap: () {
+              if (!isDone && !isLoading) {
+                _registrarUm(a.id, a.nome);
+              }
+            },
+          );
+        },
+        separatorBuilder: (_, __) => const Divider(height: 1),
+        itemCount: lista.length,
       ),
     );
   }
