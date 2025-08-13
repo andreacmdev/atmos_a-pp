@@ -14,28 +14,50 @@ class PresencaScreen extends StatefulWidget {
 
 class _PresencaScreenState extends State<PresencaScreen> {
   List<Adolescente> lista = [];
+
+  /// IDs já confirmados (mostra check verde e bloqueia interação)
   final Set<String> registrados = {};
+
+  /// IDs atualmente sendo enviados (mostra loading no item)
   final Set<String> carregandoIds = {};
+
+  /// controla indicador de carregamento geral
   bool carregandoLista = true;
 
-  final dataCulto = DateFormat('yyyy-MM-dd').format(DateTime.now());
+  /// Data padrão do culto (hoje) no formato yyyy-MM-dd
+  final String dataCulto = DateFormat('yyyy-MM-dd').format(DateTime.now());
 
   @override
   void initState() {
     super.initState();
-    carregarAdolescentes();
+    _carregarDadosIniciais();
   }
 
-  Future<void> carregarAdolescentes() async {
+  /// Carrega lista de adolescentes e também as presenças já registradas
+  /// para a combinação (dataCulto + tipoEvento) — assim a UI já vem marcada.
+  Future<void> _carregarDadosIniciais() async {
     try {
+      // 1) Carrega os adolescentes
       final dados = await GoogleSheetsApi.fetchAdolescentes();
+
+      // 2) Busca IDs já presentes hoje nesse tipo de evento
+      final idsPresentes = await GoogleSheetsApi.fetchPresencas(
+        dataCulto: dataCulto,
+        tipoEvento: widget.tipoEvento.apiValue,
+      );
+
+      // (debug opcional)
+      // ignore: avoid_print
+      print('IDs já presentes em ${widget.tipoEvento.apiValue} $dataCulto => $idsPresentes');
+
       setState(() {
         lista = dados;
+        registrados.addAll(idsPresentes); // pré-marca na UI
         carregandoLista = false;
       });
     } catch (e) {
       setState(() => carregandoLista = false);
-      _showSnack('Erro ao carregar lista. Tente novamente.');
+      _showSnack('Erro ao carregar. Tente novamente.');
     }
   }
 
@@ -53,7 +75,7 @@ class _PresencaScreenState extends State<PresencaScreen> {
 
       setState(() {
         carregandoIds.remove(id);
-        registrados.add(id);
+        registrados.add(id); // marca como concluído
       });
 
       _showSnack('Registrado: $nome (${widget.tipoEvento.label})');

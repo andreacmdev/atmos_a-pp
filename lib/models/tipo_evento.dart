@@ -4,7 +4,7 @@ extension TipoEventoX on TipoEvento {
   String get label {
     switch (this) {
       case TipoEvento.culto:
-        return 'Culto';
+        return 'Culto Domingo';
       case TipoEvento.conectadao:
         return 'Conectadão';
       case TipoEvento.atmosfera:
