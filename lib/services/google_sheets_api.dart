@@ -3,7 +3,7 @@ import 'package:http/http.dart' as http;
 import '../models/adolescente.dart';
 
 class GoogleSheetsApi {
-  static const String baseUrl = 'https://script.google.com/macros/s/AKfycbydpPk452J_M-lIAbjCWCSeFsbFFJ6oIFuHhCg7kcu_9LSvuNIJzUf-TMbcYQW0z0mV/exec';
+  static const String baseUrl = 'https://script.google.com/macros/s/AKfycbxurvCvaUsxFZjhbXgL7DEQExtsdCJjnrGs8ZTp8Pu0rMsxEC7mLI4ygCHMHq2JD-mx/exec';
 
   static Future<List<Adolescente>> fetchAdolescentes() async {
     final response = await http.get(Uri.parse('$baseUrl?action=getAdolescentes'));
