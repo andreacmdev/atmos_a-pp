@@ -53,4 +53,21 @@ static Future<void> registrarPresenca({
     throw Exception('Erro ao registrar presença (HTTP ${response.statusCode})');
     }
   }
+
+  static Future<Set<String>> fetchPresencas({
+  required String dataCulto,        // yyyy-MM-dd
+  required String tipoEvento,       // 'culto' | 'conectadao' | 'atmosfera'
+}) async {
+  final uri = Uri.parse('$baseUrl?action=getPresencas&data=$dataCulto&tipo_evento=$tipoEvento');
+  final response = await http.get(uri).timeout(const Duration(seconds: 20));
+
+  if (response.statusCode >= 200 && response.statusCode < 400) {
+    final map = jsonDecode(response.body) as Map<String, dynamic>;
+    final list = (map['ids'] as List<dynamic>? ?? []).map((e) => e.toString()).toList();
+    return Set<String>.from(list);
+  } else {
+    throw Exception('Erro ao buscar presenças (HTTP ${response.statusCode})');
+  }
+}
+
 }

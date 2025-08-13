@@ -60,7 +60,12 @@ class HomeScreen extends StatelessWidget {
         ),
       ),
       appBar: AppBar(
-        title: const Text('ATMOS — Gestão'),
+        title: Image.asset(
+          'assets/LOGO.png',
+          width: 60,
+          height: 60,
+          fit: BoxFit.contain,
+        ),
       ),
       body: Center(
         child: Padding(
@@ -70,21 +75,21 @@ class HomeScreen extends StatelessWidget {
             children: [
               // Logo
               Image.asset(
-                'assets/PERFIL.png',
-                width: 160,
-                height: 160,
+                'assets/ATMOS.png',
+                width: 360,
+                height: 360,
                 fit: BoxFit.contain,
               ),
               const SizedBox(height: 24),
               const Text(
-                'Bem-vindo à gestão de presença dos adolescentes!',
+                'Bem-vindo à gestão de presença ATMOS!',
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 16),
               ),
               const SizedBox(height: 24),
               FilledButton.icon(
-                icon: const Icon(Icons.check_circle),
-                label: const Text('Marcar Presença'),
+                icon: const Icon(Icons.church_rounded),
+                label: const Text('Registrar Presença'),
                 onPressed: () => _abrirSelecaoEvento(context),
               ),
             ],
