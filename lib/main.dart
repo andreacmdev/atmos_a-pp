@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'screens/presenca_screen.dart';
+import 'screens/home_screen.dart';
 
 void main() {
   runApp(const AtmosApp());
@@ -17,7 +17,7 @@ class AtmosApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         useMaterial3: true,
       ),
-      home: const PresencaScreen(),
+      home: const HomeScreen(),
     );
   }
 }

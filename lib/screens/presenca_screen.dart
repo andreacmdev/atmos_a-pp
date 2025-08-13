@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/adolescente.dart';
+import '../models/tipo_evento.dart';
 import '../services/google_sheets_api.dart';
 
 class PresencaScreen extends StatefulWidget {
-  const PresencaScreen({super.key});
+  final TipoEvento tipoEvento;
+  const PresencaScreen({super.key, required this.tipoEvento});
 
   @override
   State<PresencaScreen> createState() => _PresencaScreenState();
@@ -30,7 +32,7 @@ class _PresencaScreenState extends State<PresencaScreen> {
         carregando = false;
       });
     } catch (e) {
-      print('Erro ao carregar: $e');
+      debugPrint('Erro ao carregar: $e');
       setState(() {
         carregando = false;
       });
@@ -48,15 +50,23 @@ class _PresencaScreenState extends State<PresencaScreen> {
   }
 
   Future<void> salvarPresencas() async {
+    if (presencas.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Selecione pelo menos 1 presença.')),
+      );
+      return;
+    }
+
     for (var id in presencas) {
       await GoogleSheetsApi.registrarPresenca(
         idAdolescente: id,
         dataCulto: dataCulto,
+        tipoEvento: widget.tipoEvento.apiValue, // já enviando para futuro
       );
     }
 
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Presenças salvas com sucesso!')),
+      SnackBar(content: Text('Presenças salvas para ${widget.tipoEvento.label}!')),
     );
 
     setState(() {
@@ -67,13 +77,25 @@ class _PresencaScreenState extends State<PresencaScreen> {
   @override
   Widget build(BuildContext context) {
     if (carregando) {
-      return const Center(child: CircularProgressIndicator());
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
     }
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Marcar Presença')),
+      appBar: AppBar(title: Text('Marcar Presença — ${widget.tipoEvento.label}')),
       body: Column(
         children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+            child: Row(
+              children: [
+                const Icon(Icons.calendar_month),
+                const SizedBox(width: 8),
+                Text('Data: $dataCulto', style: const TextStyle(fontWeight: FontWeight.w600)),
+              ],
+            ),
+          ),
           Expanded(
             child: ListView(
               children: lista.map((adolescente) {
@@ -87,7 +109,7 @@ class _PresencaScreenState extends State<PresencaScreen> {
           ),
           Padding(
             padding: const EdgeInsets.all(16.0),
-            child: ElevatedButton.icon(
+            child: FilledButton.icon(
               icon: const Icon(Icons.save),
               label: const Text('Salvar Presenças'),
               onPressed: salvarPresencas,

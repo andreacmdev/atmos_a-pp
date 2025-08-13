@@ -3,25 +3,23 @@ import 'package:http/http.dart' as http;
 import '../models/adolescente.dart';
 
 class GoogleSheetsApi {
-  static const String baseUrl = 'https://script.google.com/macros/s/AKfycbx8RS9M-7Jl1k6SQcRqSj-16ecIlxZ7brWiN5MZVNSV24_4W368w2U1zICDL0JruZbi/exec';
+  static const String baseUrl = 'https://script.google.com/macros/s/AKfycbydpPk452J_M-lIAbjCWCSeFsbFFJ6oIFuHhCg7kcu_9LSvuNIJzUf-TMbcYQW0z0mV/exec';
 
-  /// Busca a lista de adolescentes cadastrados na planilha
   static Future<List<Adolescente>> fetchAdolescentes() async {
     final response = await http.get(Uri.parse('$baseUrl?action=getAdolescentes'));
-
     if (response.statusCode == 200) {
-      List<dynamic> data = jsonDecode(response.body);
+      final data = jsonDecode(response.body) as List<dynamic>;
       return data.map((json) => Adolescente.fromJson(json)).toList();
     } else {
       throw Exception('Erro ao buscar adolescentes');
     }
   }
 
-  /// Registra presença de um adolescente para uma data de culto
   static Future<void> registrarPresenca({
     required String idAdolescente,
     required String dataCulto,
     String registradoPor = 'André',
+    String? tipoEvento, // novo
   }) async {
     final response = await http.post(
       Uri.parse(baseUrl),
@@ -30,6 +28,7 @@ class GoogleSheetsApi {
         'id': idAdolescente,
         'data': dataCulto,
         'registrado_por': registradoPor,
+        if (tipoEvento != null) 'tipo_evento': tipoEvento, // enviado (backend atual ignora)
       },
     );
 
