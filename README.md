@@ -1,5 +1,7 @@
 # 📱 ATMOS App — Gestão de Presença de Adolescentes
 
+# 📱 ATMOS App — Gestão de Presença de Adolescentes
+
 O **ATMOS App** é um aplicativo desenvolvido em **Flutter** para auxiliar no controle de presença dos adolescentes nos eventos do departamento da igreja, como:
 
 - Culto
@@ -15,11 +17,13 @@ Isso garante facilidade de acesso para a equipe de gestão, sem necessidade de c
 
 - ✅ **Listagem automática** de adolescentes cadastrados no Google Sheets.
 - ✅ **Marcação de presença** para cada evento do dia.
+- ✅ **Cadastro de visitantes** com nome, telefone e idade.
 - ✅ **Integração com Google Sheets API** via Google Apps Script.
 - ✅ **Pré-carregamento** das presenças já registradas no mesmo dia e evento.
 - ✅ **Feedback visual** após cada registro.
 - ✅ **Interface simples e responsiva** para uso em qualquer celular Android.
 - ✅ **Menu inicial com seleção de evento**.
+- ✅ **Menu lateral** com opções de **Marcar Presença** e **Adicionar Visitante**.
 
 ---
 
@@ -38,16 +42,17 @@ Isso garante facilidade de acesso para a equipe de gestão, sem necessidade de c
 ```plaintext
 lib/
 ├── models/
-│   ├── adolescente.dart     # Modelo de dados do adolescente
-│   └── tipo_evento.dart     # Enum dos tipos de eventos
+│   ├── adolescente.dart       # Modelo de dados do adolescente
+│   └── tipo_evento.dart       # Enum dos tipos de eventos
 ├── screens/
-│   ├── home_screen.dart     # Tela inicial com menu lateral e seleção de evento
-│   └── presenca_screen.dart # Tela de marcação de presença
+│   ├── home_screen.dart       # Tela inicial com menu lateral e seleção de evento
+│   ├── presenca_screen.dart   # Tela de marcação de presença
+│   └── visitante_form_screen.dart # Tela para cadastro de visitante
 ├── services/
 │   └── google_sheets_api.dart # Comunicação com o Apps Script/Sheets
 assets/
 └── icon/
-    └── atmos.png            # Ícone oficial do app
+    └── atmos.png              # Ícone oficial do app
 ```
 
 ## 🚀 Como Rodar o Projeto
@@ -84,17 +89,24 @@ flutter run
 
 O backend do app é um Google Apps Script que:
 
-Lê a lista de adolescentes na aba adolescentes.
-Registra presenças na aba presencas.
-Retorna IDs já presentes para marcar na UI.
+- Lê a lista de adolescentes na aba adolescentes.
+- Registra presenças na aba presencas.
+- Registra visitantes na aba visitantes.
+- Retorna IDs já presentes para marcar na UI.
 
 Endpoints
 ```js
-action=getAdolescentes → retorna lista de adolescentes.
+action=getAdolescentes
+ → retorna lista de adolescentes.
 
-action=registrarPresenca → salva presença no Sheets.
+action=registrarPresenca
+ → salva presença no Sheets.
 
-action=getPresencas&data=YYYY-MM-DD&tipo_evento=culto → retorna IDs já registrados no dia/evento.
+action=getPresencas&data=YYYY-MM-DD&tipo_evento=culto
+ → retorna IDs já registrados no dia/evento.
+
+action=registrarVisitante
+    → salva nome, telefone e idade do visitante na aba 'visitantes'.
 ```
 
 ## 📷 Capturas de Tela (exemplo)
