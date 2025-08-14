@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import '../models/tipo_evento.dart';
 import 'presenca_screen.dart';
-import '../theme/brand_colors.dart'; // importa a paleta
+import '../theme/brand_colors.dart';
+import 'visitante_form_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -59,6 +60,18 @@ drawer: Drawer(
                 onTap: () {
                   Navigator.pop(context);
                   _abrirSelecaoEvento(context);
+                },
+              ),
+              const Divider(),
+              ListTile(
+                leading: const Icon(Icons.person_add_alt),
+                title: const Text('Adicionar Visitante'),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const VisitanteFormScreen()),
+                  );
                 },
               ),
               const Divider(),
