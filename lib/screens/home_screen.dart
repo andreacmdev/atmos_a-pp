@@ -115,7 +115,7 @@ drawer: Drawer(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Image.asset(
-                  'assets/ATMOS.png',
+                  'assets/atmosw.png',
                   width: 560,
                   height: 360,
                   fit: BoxFit.contain,

@@ -75,7 +75,8 @@ flutter:
     - assets/1.png
     - assets/6.png
     - assets/10.png
-    - assets/14.png  
+    - assets/14.png
+    - assets/atmosw.png  
 
   # To add assets to your application, add an assets section, like this:
   # assets:

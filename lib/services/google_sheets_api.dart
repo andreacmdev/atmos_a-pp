@@ -63,7 +63,7 @@ static Future<void> registrarVisitante({
       .post(
         Uri.parse(baseUrl),
         headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
+          'Content-Type': 'application/x-www-form-urlencoded',          
         },
         body: {
           'action': 'registrarVisitante',
