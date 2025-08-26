@@ -151,10 +151,23 @@ class _PresencaScreenState extends State<PresencaScreen> {
     final visitantesHoje = await GoogleSheetsApi.getVisitantesHoje();
     final qtdVisitantes = visitantesHoje.length;
 
-    // --- FONTES (via assets, compatível com pdf:^3.10.8) ---
-    final fontRegular = pw.Font.ttf(await rootBundle.load('assets/fonts/Roboto-Regular.ttf'));
-    final fontBold    = pw.Font.ttf(await rootBundle.load('assets/fonts/Roboto-Bold.ttf'));
-
+    // --- FONTES (via assets, com fallback seguro) ---
+      pw.Font fontRegular;
+      pw.Font fontBold;
+      try {
+        final r = await rootBundle.load('assets/Roboto-Regular.ttf');
+        final b = await rootBundle.load('assets/Roboto-Bold.ttf');
+        // prints ajudam a diagnosticar se vier 0 bytes
+        // ignore: avoid_print
+        print('FONTES OK: regular=${r.lengthInBytes}, bold=${b.lengthInBytes}');
+        fontRegular = pw.Font.ttf(r);
+        fontBold    = pw.Font.ttf(b);
+      } catch (e) {
+        // ignore: avoid_print
+        print('FALHA FONTES, usando Helvetica: $e');
+        fontRegular = pw.Font.helvetica();
+        fontBold    = pw.Font.helveticaBold();
+      }
     // --- LOGO (opcional) ---
     Uint8List? logoBytes;
     try {
