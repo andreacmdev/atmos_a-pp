@@ -3,7 +3,7 @@ import 'package:http/http.dart' as http;
 import '../models/adolescente.dart';
 
 class GoogleSheetsApi {
-  static const String baseUrl = 'https://script.google.com/macros/s/AKfycbwl4gIS5-Kw2Q4x_lvuKZ3pAiMy9YqDjrpn1zpAlEvy-B6s2t9bY7MDjJ2yRssplmLd/exec';
+  static const String baseUrl = 'https://script.google.com/macros/s/AKfycbxAkqeX-IRjOv5ETDtm9diuTeS4cpzv9jLINCxMUFnBQVHloQIugzhSVT1g-qTkbtYY/exec';
 
  static Future<List<Adolescente>> fetchAdolescentes() async {
     final response = await http
@@ -53,6 +53,34 @@ static Future<void> registrarPresenca({
     throw Exception('Erro ao registrar presença (HTTP ${response.statusCode})');
     }
   }
+
+
+
+  static Future<void> removerPresenca({
+  required String idAdolescente,
+  required String dataCulto,       // yyyy-MM-dd
+  required String tipoEvento,      // 'culto' | 'conectadao' | 'atmosfera'
+}) async {
+  final response = await http
+      .post(
+        Uri.parse(baseUrl),
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        body: {
+          'action': 'removerPresenca',
+          'id': idAdolescente,
+          'data': dataCulto,
+          'tipo_evento': tipoEvento,
+        },
+      )
+      .timeout(const Duration(seconds: 20));
+
+  final ok = response.statusCode >= 200 && response.statusCode < 400;
+  if (!ok) {
+    throw Exception('Erro ao remover presença (HTTP ${response.statusCode})');
+  }
+  // opcional: validar body se quiser
+}
+
 
 static Future<void> registrarVisitante({
   required String nome,

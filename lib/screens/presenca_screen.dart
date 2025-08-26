@@ -3,6 +3,11 @@ import 'package:intl/intl.dart';
 import '../models/adolescente.dart';
 import '../models/tipo_evento.dart';
 import '../services/google_sheets_api.dart';
+import 'dart:typed_data';
+import 'package:flutter/services.dart' show rootBundle;
+import 'package:pdf/widgets.dart' as pw;
+import 'package:pdf/pdf.dart';
+import 'package:printing/printing.dart';
 
 class PresencaScreen extends StatefulWidget {
   final TipoEvento tipoEvento;
@@ -44,7 +49,7 @@ class _PresencaScreenState extends State<PresencaScreen> {
     super.dispose();
   }
 
-  /// Carrega lista e pré‑marca quem já está presente (mesmo dia + evento)
+  /// Carrega lista e pré-marca quem já está presente (mesmo dia + evento)
   Future<void> _carregarDadosIniciais() async {
     try {
       final dados = await GoogleSheetsApi.fetchAdolescentes();
@@ -81,7 +86,18 @@ class _PresencaScreenState extends State<PresencaScreen> {
         registrados.add(id);
       });
 
-      _showSnack('Registrado: $nome (${widget.tipoEvento.label})');
+      // Snackbar com DESFAZER
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Registrado: $nome (${widget.tipoEvento.label})'),
+          action: SnackBarAction(
+            label: 'DESFAZER',
+            onPressed: () => _desfazer(id, nome),
+          ),
+          duration: const Duration(seconds: 4),
+        ),
+      );
     } catch (e) {
       setState(() => carregandoIds.remove(id));
       _showSnack(
@@ -94,21 +110,158 @@ class _PresencaScreenState extends State<PresencaScreen> {
     }
   }
 
+  Future<void> _desfazer(String id, String nome) async {
+    try {
+      await GoogleSheetsApi.removerPresenca(
+        idAdolescente: id,
+        dataCulto: dataCulto,
+        tipoEvento: widget.tipoEvento.apiValue,
+      );
+      setState(() {
+        registrados.remove(id);
+      });
+      _showSnack('Desfeito: $nome');
+    } catch (e) {
+      _showSnack('Falha ao desfazer. Tente novamente.');
+    }
+  }
+
   void _showSnack(String msg, {SnackBarAction? action}) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(msg), action: action),
     );
   }
 
+  /// --------- PDF ---------
+  Future<void> _exportarPdf() async {
+  try {
+    // 1) Filtra presentes (ordenados)
+    final presentes = lista
+        .where((a) => registrados.contains(a.id))
+        .toList()
+      ..sort((a, b) => a.nome.toLowerCase().compareTo(b.nome.toLowerCase()));
+
+    final total = lista.length;
+    final totalPresentes = presentes.length;
+    final totalFaltantes = total - totalPresentes;
+
+    // 2) Fontes seguras sem assets (evita erro de asset não encontrado)
+    final fontRegular = pw.Font.ttf(await rootBundle.load('assets/Roboto-Regular.ttf'));
+    final fontBold    = pw.Font.ttf(await rootBundle.load('assets/Roboto-Bold.ttf'));
+
+    // 3) Logo (opcional)
+    Uint8List? logoBytes;
+    try {
+      final data = await rootBundle.load('assets/LOGO.png'); // ajuste se seu caminho for diferente
+      logoBytes = data.buffer.asUint8List();
+    } catch (_) {
+      logoBytes = null; // se não achar, segue sem logo
+    }
+
+    final pdf = pw.Document();
+
+    final estiloTitulo = pw.TextStyle(font: fontBold, fontSize: 18);
+    final estiloSub = pw.TextStyle(font: fontRegular, fontSize: 12);
+    final estiloCabecalho = pw.TextStyle(font: fontBold, fontSize: 12);
+    final estiloLinha = pw.TextStyle(font: fontRegular, fontSize: 11);
+
+    final agora = DateTime.now();
+    final geradoEm = DateFormat('dd/MM/yyyy HH:mm').format(agora);
+    final dataBR = DateFormat('dd/MM/yyyy').format(agora);
+    final evento = widget.tipoEvento.label;
+
+    pdf.addPage(
+      pw.MultiPage(
+        pageTheme: pw.PageTheme(
+          margin: const pw.EdgeInsets.all(24),
+          theme: pw.ThemeData.withFont(base: fontRegular, bold: fontBold),
+        ),
+        header: (_) => pw.Row(
+          mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+          crossAxisAlignment: pw.CrossAxisAlignment.center,
+          children: [
+            pw.Row(
+              children: [
+                if (logoBytes != null)
+                  pw.Container(
+                    width: 36,
+                    height: 36,
+                    margin: const pw.EdgeInsets.only(right: 12),
+                    child: pw.Image(pw.MemoryImage(logoBytes)),
+                  ),
+                pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    pw.Text('Relatório de Presenças', style: estiloTitulo),
+                    pw.Text('Evento: $evento • Data: $dataBR', style: estiloSub),
+                  ],
+                ),
+              ],
+            ),
+            pw.Text('Gerado: $geradoEm', style: estiloSub),
+          ],
+        ),
+        footer: (ctx) => pw.Align(
+          alignment: pw.Alignment.centerRight,
+          child: pw.Text('Página ${ctx.pageNumber}/${ctx.pagesCount}', style: estiloSub),
+        ),
+        build: (_) => [
+          pw.SizedBox(height: 12),
+          pw.Row(
+            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+            children: [
+              pw.Text('Total cadastrados: $total', style: estiloSub),
+              pw.Text('Presentes: $totalPresentes', style: estiloSub),
+              pw.Text('Faltantes: $totalFaltantes', style: estiloSub),
+            ],
+          ),
+          pw.SizedBox(height: 16),
+          if (presentes.isEmpty)
+            pw.Text('Nenhum presente registrado para este evento hoje.', style: estiloSub)
+          else
+            pw.Table(
+              border: pw.TableBorder.all(width: 0.5, color: PdfColors.grey600),
+              columnWidths: { 0: const pw.FixedColumnWidth(36), 1: const pw.FlexColumnWidth(3) },
+              children: [
+                pw.TableRow(
+                  decoration: const pw.BoxDecoration(color: PdfColors.grey300),
+                  children: [
+                    pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('#', style: estiloCabecalho)),
+                    pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('Nome', style: estiloCabecalho)),
+                  ],
+                ),
+                ...List.generate(presentes.length, (i) => pw.TableRow(
+                  children: [
+                    pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('${i + 1}', style: estiloLinha)),
+                    pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text(presentes[i].nome, style: estiloLinha)),
+                  ],
+                )),
+              ],
+            ),
+        ],
+      ),
+    );
+
+    final bytes = await pdf.save();
+    final fileName = 'relatorio_${widget.tipoEvento.apiValue}_${dataCulto}.pdf';
+    await Printing.sharePdf(bytes: bytes, filename: fileName);
+    _showSnack('PDF gerado: $fileName');
+  } catch (e) {
+    // ajuda no diagnóstico enquanto testa
+    // ignore: avoid_print
+    print('ERRO PDF: $e');
+    _showSnack('Falha ao gerar PDF: $e');
+  }
+}
+  /// --------- FIM PDF ---------
+
   /// --------- PESQUISA ---------
   void _toggleSearch() {
     setState(() {
       _searching = !_searching;
       if (_searching) {
-        // abre pesquisa e foca
         Future.microtask(() => _searchFocus.requestFocus());
       } else {
-        // fecha pesquisa e limpa
         _searchCtrl.clear();
       }
     });
@@ -128,10 +281,10 @@ class _PresencaScreenState extends State<PresencaScreen> {
 
   /// Remove acentos e coloca em minúsculas (busca + amigável)
   String _normalize(String s) {
-    const from = 'áàâãäÁÀÂÃÄéèêëÉÈÊËíìîïÍÌÎÏóòôõöÓÒÔÕÖúùûüÚÙÛÜçÇñÑ';
-    const to   = 'aaaaaAAAAAeeeeEEEEiiiiIIIIoooooOOOOOuuuuUUUUcCnN';
+    const from = 'áàâãäÁÀÂÃÄéèêëÉÈÊËíìîïÍÌÎÏóòôõÖÓÒÔÕÖúùûüÚÙÛÜçÇñÑ';
+    const to   = 'aaaaaAAAAAeeeeEEEEiiiiIIIIoooooOOOOOUUUUuuuuUUUUcCnN';
     var out = s.toLowerCase();
-    for (var i = 0; i < from.length; i++) {
+    for (var i = 0; i < from.length && i < to.length; i++) {
       out = out.replaceAll(from[i], to[i]);
     }
     return out;
@@ -146,7 +299,6 @@ class _PresencaScreenState extends State<PresencaScreen> {
       );
     }
 
-    // aplica filtro por nome
     final visiveis = lista.where((a) => _matchesQuery(a.nome)).toList();
 
     return Scaffold(
@@ -178,11 +330,15 @@ class _PresencaScreenState extends State<PresencaScreen> {
             icon: Icon(_searching ? Icons.search_off : Icons.search),
             onPressed: _toggleSearch,
           ),
+          IconButton(
+            tooltip: 'Exportar PDF (hoje)',
+            icon: const Icon(Icons.picture_as_pdf),
+            onPressed: _exportarPdf,
+          ),
         ],
       ),
       body: Column(
         children: [
-          // Info: quantidade exibida / total e quantos já registrados
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
             child: Row(
