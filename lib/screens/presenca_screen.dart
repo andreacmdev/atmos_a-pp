@@ -135,7 +135,7 @@ class _PresencaScreenState extends State<PresencaScreen> {
   /// --------- PDF ---------
   Future<void> _exportarPdf() async {
   try {
-    // 1) Filtra presentes (ordenados)
+    // --- PRESENTES DO DIA (evento atual) ---
     final presentes = lista
         .where((a) => registrados.contains(a.id))
         .toList()
@@ -145,30 +145,36 @@ class _PresencaScreenState extends State<PresencaScreen> {
     final totalPresentes = presentes.length;
     final totalFaltantes = total - totalPresentes;
 
-    // 2) Fontes seguras sem assets (evita erro de asset não encontrado)
-    final fontRegular = pw.Font.ttf(await rootBundle.load('assets/Roboto-Regular.ttf'));
-    final fontBold    = pw.Font.ttf(await rootBundle.load('assets/Roboto-Bold.ttf'));
+    // --- VISITANTES DO DIA (independente do tipo de evento) ---
+    // Pressupondo que você já tem este método no service.
+    // Ele deve retornar: List<Map<String,String>> com chaves: 'nome','telefone','idade'
+    final visitantesHoje = await GoogleSheetsApi.getVisitantesHoje();
+    final qtdVisitantes = visitantesHoje.length;
 
-    // 3) Logo (opcional)
+    // --- FONTES (via assets, compatível com pdf:^3.10.8) ---
+    final fontRegular = pw.Font.ttf(await rootBundle.load('assets/fonts/Roboto-Regular.ttf'));
+    final fontBold    = pw.Font.ttf(await rootBundle.load('assets/fonts/Roboto-Bold.ttf'));
+
+    // --- LOGO (opcional) ---
     Uint8List? logoBytes;
     try {
-      final data = await rootBundle.load('assets/LOGO.png'); // ajuste se seu caminho for diferente
+      final data = await rootBundle.load('assets/LOGO.png'); // ajuste caso sua logo esteja em outro caminho
       logoBytes = data.buffer.asUint8List();
     } catch (_) {
-      logoBytes = null; // se não achar, segue sem logo
+      logoBytes = null;
     }
 
     final pdf = pw.Document();
 
-    final estiloTitulo = pw.TextStyle(font: fontBold, fontSize: 18);
-    final estiloSub = pw.TextStyle(font: fontRegular, fontSize: 12);
-    final estiloCabecalho = pw.TextStyle(font: fontBold, fontSize: 12);
-    final estiloLinha = pw.TextStyle(font: fontRegular, fontSize: 11);
+    final estiloTitulo     = pw.TextStyle(font: fontBold,    fontSize: 18);
+    final estiloSub        = pw.TextStyle(font: fontRegular, fontSize: 12);
+    final estiloCabecalho  = pw.TextStyle(font: fontBold,    fontSize: 12);
+    final estiloLinha      = pw.TextStyle(font: fontRegular, fontSize: 11);
 
-    final agora = DateTime.now();
+    final agora    = DateTime.now();
     final geradoEm = DateFormat('dd/MM/yyyy HH:mm').format(agora);
-    final dataBR = DateFormat('dd/MM/yyyy').format(agora);
-    final evento = widget.tipoEvento.label;
+    final dataBR   = DateFormat('dd/MM/yyyy').format(agora);
+    final evento   = widget.tipoEvento.label;
 
     pdf.addPage(
       pw.MultiPage(
@@ -184,9 +190,7 @@ class _PresencaScreenState extends State<PresencaScreen> {
               children: [
                 if (logoBytes != null)
                   pw.Container(
-                    width: 36,
-                    height: 36,
-                    margin: const pw.EdgeInsets.only(right: 12),
+                    width: 36, height: 36, margin: const pw.EdgeInsets.only(right: 12),
                     child: pw.Image(pw.MemoryImage(logoBytes)),
                   ),
                 pw.Column(
@@ -206,6 +210,7 @@ class _PresencaScreenState extends State<PresencaScreen> {
           child: pw.Text('Página ${ctx.pageNumber}/${ctx.pagesCount}', style: estiloSub),
         ),
         build: (_) => [
+          // --- RESUMO ---
           pw.SizedBox(height: 12),
           pw.Row(
             mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
@@ -213,29 +218,78 @@ class _PresencaScreenState extends State<PresencaScreen> {
               pw.Text('Total cadastrados: $total', style: estiloSub),
               pw.Text('Presentes: $totalPresentes', style: estiloSub),
               pw.Text('Faltantes: $totalFaltantes', style: estiloSub),
+              pw.Text('Visitantes (hoje): $qtdVisitantes', style: estiloSub),
             ],
           ),
           pw.SizedBox(height: 16),
+
+          // --- TABELA DE PRESENTES ---
           if (presentes.isEmpty)
             pw.Text('Nenhum presente registrado para este evento hoje.', style: estiloSub)
           else
             pw.Table(
               border: pw.TableBorder.all(width: 0.5, color: PdfColors.grey600),
-              columnWidths: { 0: const pw.FixedColumnWidth(36), 1: const pw.FlexColumnWidth(3) },
+              columnWidths: { 0: const pw.FixedColumnWidth(36), 1: const pw.FlexColumnWidth(3), },
               children: [
                 pw.TableRow(
                   decoration: const pw.BoxDecoration(color: PdfColors.grey300),
                   children: [
-                    pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('#', style: estiloCabecalho)),
+                    pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('#',    style: estiloCabecalho)),
                     pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('Nome', style: estiloCabecalho)),
                   ],
                 ),
-                ...List.generate(presentes.length, (i) => pw.TableRow(
+                ...List.generate(presentes.length, (i) {
+                  final a = presentes[i];
+                  return pw.TableRow(
+                    children: [
+                      pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('${i + 1}', style: estiloLinha)),
+                      pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text(a.nome,     style: estiloLinha)),
+                    ],
+                  );
+                }),
+              ],
+            ),
+
+          // --- SEÇÃO DE VISITANTES ---
+          pw.SizedBox(height: 24),
+          pw.Text('Visitantes de Hoje', style: estiloTitulo),
+          pw.SizedBox(height: 8),
+
+          if (visitantesHoje.isEmpty)
+            pw.Text('Nenhum visitante registrado hoje.', style: estiloSub)
+          else
+            pw.Table(
+              border: pw.TableBorder.all(width: 0.5, color: PdfColors.grey600),
+              columnWidths: {
+                0: const pw.FixedColumnWidth(36),  // #
+                1: const pw.FlexColumnWidth(3),    // Nome
+                2: const pw.FlexColumnWidth(2),    // Telefone
+                3: const pw.FixedColumnWidth(50),  // Idade
+              },
+              children: [
+                pw.TableRow(
+                  decoration: const pw.BoxDecoration(color: PdfColors.grey300),
                   children: [
-                    pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('${i + 1}', style: estiloLinha)),
-                    pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text(presentes[i].nome, style: estiloLinha)),
+                    pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('#',        style: estiloCabecalho)),
+                    pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('Nome',     style: estiloCabecalho)),
+                    pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('Telefone', style: estiloCabecalho)),
+                    pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('Idade',    style: estiloCabecalho)),
                   ],
-                )),
+                ),
+                ...List.generate(visitantesHoje.length, (i) {
+                  final v   = visitantesHoje[i];
+                  final nm  = (v['nome']     ?? '').trim();
+                  final tel = (v['telefone'] ?? '').trim().isEmpty ? '-' : (v['telefone'] ?? '').trim();
+                  final idd = (v['idade']    ?? '').trim().isEmpty ? '-' : (v['idade']    ?? '').trim();
+                  return pw.TableRow(
+                    children: [
+                      pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('${i + 1}', style: estiloLinha)),
+                      pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text(nm,         style: estiloLinha)),
+                      pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text(tel,        style: estiloLinha)),
+                      pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text(idd,        style: estiloLinha)),
+                    ],
+                  );
+                }),
               ],
             ),
         ],
@@ -247,7 +301,6 @@ class _PresencaScreenState extends State<PresencaScreen> {
     await Printing.sharePdf(bytes: bytes, filename: fileName);
     _showSnack('PDF gerado: $fileName');
   } catch (e) {
-    // ajuda no diagnóstico enquanto testa
     // ignore: avoid_print
     print('ERRO PDF: $e');
     _showSnack('Falha ao gerar PDF: $e');

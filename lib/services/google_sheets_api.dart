@@ -110,6 +110,31 @@ static Future<void> registrarVisitante({
   }
 }
 
+
+/// Visitantes do dia (hoje)
+static Future<List<Map<String, String>>> getVisitantesHoje() async {
+  final uri = Uri.parse('$baseUrl?action=getVisitantesHoje');
+  final resp = await http.get(uri).timeout(const Duration(seconds: 20));
+
+  if (resp.statusCode >= 200 && resp.statusCode < 400) {
+    final map = jsonDecode(resp.body) as Map<String, dynamic>;
+    final lista = (map['visitantes'] as List<dynamic>? ?? []);
+
+    return lista.map<Map<String, String>>((e) {
+      final m = (e as Map<String, dynamic>);
+      return {
+        'nome': (m['nome'] ?? '').toString(),
+        'telefone': (m['telefone'] ?? '').toString(),
+        'idade': (m['idade'] ?? '').toString(),
+        // se seu backend também devolver, isso preenche; senão fica vazio
+        'data_registro': (m['data_registro'] ?? '').toString(),
+      };
+    }).toList();
+  }
+
+  throw Exception('Erro ao buscar visitantes (HTTP ${resp.statusCode})');
+}
+
   static Future<Set<String>> fetchPresencas({
   required String dataCulto,        // yyyy-MM-dd
   required String tipoEvento,       // 'culto' | 'conectadao' | 'atmosfera'
