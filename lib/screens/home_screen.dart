@@ -3,6 +3,7 @@ import '../models/tipo_evento.dart';
 import 'presenca_screen.dart';
 import '../theme/brand_colors.dart';
 import 'visitante_form_screen.dart';
+import 'aniversariantes_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -39,6 +40,7 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
+  
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -74,6 +76,18 @@ drawer: Drawer(
                   );
                 },
               ),
+              const Divider(),
+                ListTile(
+                  leading: const Icon(Icons.cake),
+                  title: const Text('Aniversariantes do mês'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const AniversariantesScreen()),
+                    );
+                  },
+                ),
               const Divider(),
             ],
           ),

@@ -1,8 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+import 'package:intl/date_symbol_data_local.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'screens/home_screen.dart';
 import 'theme/brand_colors.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Locale padrão
+  Intl.defaultLocale = 'pt_BR';
+
+  // Carrega dados de data para pt_BR (e pt como fallback)
+  await initializeDateFormatting('pt_BR', null);
+  await initializeDateFormatting('pt', null);
+
   runApp(const AtmosApp());
 }
 
@@ -19,13 +31,23 @@ class AtmosApp extends StatelessWidget {
     return MaterialApp(
       title: 'ATMOS Presença',
       debugShowCheckedModeBanner: false,
+
+      // Habilita strings/datas do Material/Cupertino em pt-BR
+      localizationsDelegates: const [
+        // Material/Cupertino/Widgets localizations
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      supportedLocales: const [Locale('pt', 'BR')],
+
       theme: ThemeData(
         colorScheme: colorScheme,
         useMaterial3: true,
+
         // Botões preenchidos (usados no app)
         filledButtonTheme: FilledButtonThemeData(
           style: FilledButton.styleFrom(
-            // padrão global (pode trocar por magenta/red/yellow)
             backgroundColor: BrandColors.magenta,
             foregroundColor: Colors.white,
             shape: RoundedRectangleBorder(
