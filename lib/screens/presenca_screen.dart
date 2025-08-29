@@ -110,6 +110,59 @@ class _PresencaScreenState extends State<PresencaScreen> {
     }
   }
 
+  Future<void> _alternarPresenca(Adolescente a) async {
+  final id = a.id;
+  final nome = a.nome;
+
+  if (carregandoIds.contains(id)) return; // evita toques duplos
+
+  final jaMarcado = registrados.contains(id);
+  setState(() => carregandoIds.add(id));
+
+  try {
+    if (jaMarcado) {
+      // DESMARCAR
+      await GoogleSheetsApi.removerPresenca(
+        idAdolescente: id,
+        dataCulto: dataCulto,
+        tipoEvento: widget.tipoEvento.apiValue,
+      );
+      setState(() {
+        registrados.remove(id);
+      });
+      _showSnack('Presença removida: $nome');
+    } else {
+      // MARCAR
+      await GoogleSheetsApi.registrarPresenca(
+        idAdolescente: id,
+        dataCulto: dataCulto,
+        tipoEvento: widget.tipoEvento.apiValue,
+      );
+      setState(() {
+        registrados.add(id);
+      });
+      // opção: ainda oferecer desfazer imediato
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Registrado: $nome (${widget.tipoEvento.label})'),
+          action: SnackBarAction(
+            label: 'DESFAZER',
+            onPressed: () => _desfazer(id, nome),
+          ),
+          duration: const Duration(seconds: 4),
+        ),
+      );
+    }
+  } catch (e) {
+    _showSnack(jaMarcado
+        ? 'Falha ao remover presença. Tente novamente.'
+        : 'Falha ao registrar presença. Tente novamente.');
+  } finally {
+    if (mounted) setState(() => carregandoIds.remove(id));
+  }
+}
+
   Future<void> _desfazer(String id, String nome) async {
     try {
       await GoogleSheetsApi.removerPresenca(
@@ -425,30 +478,48 @@ class _PresencaScreenState extends State<PresencaScreen> {
                 final isLoading = carregandoIds.contains(a.id);
                 final isDone = registrados.contains(a.id);
 
-                return ListTile(
-                  title: Text(a.nome),
-                  leading: isDone
-                      ? const Icon(Icons.check_circle, color: Colors.green)
-                      : (isLoading
+                  return Opacity(
+                    opacity: isLoading ? 0.6 : 1.0, // (opcional) dá um feedback visual extra
+                    child: ListTile(
+                      enabled: !isLoading, // desabilita visual + sem foco
+                      title: Text(a.nome),
+                      leading: isLoading
                           ? const SizedBox(
                               width: 24,
                               height: 24,
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
-                          : const Icon(Icons.person_outline)),
-                  trailing: Checkbox(
-                    value: isDone,
-                    onChanged: (val) {
-                      if (!isDone && !isLoading) {
-                        _registrarUm(a.id, a.nome);
-                      }
-                    },
-                  ),
-                  onTap: () {
-                    if (!isDone && !isLoading) {
-                      _registrarUm(a.id, a.nome);
-                    }
-                  },
+                          : (isDone
+                              ? const Icon(Icons.check_circle, color: Colors.green)
+                              : const Icon(Icons.person_outline)),
+                      trailing: Checkbox(
+                        value: isDone,
+                        onChanged: isLoading ? null : (_) => _alternarPresenca(a),
+                      ),
+                      onTap: isLoading ? null : () => _alternarPresenca(a),
+                      onLongPress: (isDone && !isLoading)
+                          ? () async {
+                              final ok = await showDialog<bool>(
+                                context: context,
+                                builder: (_) => AlertDialog(
+                                  title: const Text('Remover presença?'),
+                                  content: Text('Deseja remover a presença de ${a.nome}?'),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () => Navigator.pop(context, false),
+                                      child: const Text('Cancelar'),
+                                    ),
+                                    FilledButton(
+                                      onPressed: () => Navigator.pop(context, true),
+                                      child: const Text('Remover'),
+                                    ),
+                                  ],
+                                ),
+                              );
+                              if (ok == true) _alternarPresenca(a);
+                            }
+                          : null,
+                    ),
                 );
               },
               separatorBuilder: (_, __) => const Divider(height: 1),
