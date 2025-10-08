@@ -4,6 +4,7 @@ import 'presenca_screen.dart';
 import '../theme/brand_colors.dart';
 import 'visitante_form_screen.dart';
 import 'aniversariantes_screen.dart';
+import 'visitantes_relatorio_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -89,6 +90,18 @@ drawer: Drawer(
                   },
                 ),
               const Divider(),
+                ListTile(
+                  leading: const Icon(Icons.people_outline),
+                  title: const Text('Visitantes da Semana'),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const VisitantesSemanaScreen(),
+                      ),
+                    );
+                  },
+                ),
             ],
           ),
         ),

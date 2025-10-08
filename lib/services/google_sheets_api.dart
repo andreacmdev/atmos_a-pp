@@ -3,7 +3,7 @@ import 'package:http/http.dart' as http;
 import '../models/adolescente.dart';
 
 class GoogleSheetsApi {
-  static const String baseUrl = 'https://script.google.com/macros/s/AKfycbzi9FC3NsozxPSKjZvLz3V-6UK5HNrQtasVoeNP7PsGiUHIj3OeAWu0RH7EzkOBZ6v9/exec';
+  static const String baseUrl = 'https://script.google.com/macros/s/AKfycbw4CenBeOYFSIuDjRJqrZvxIid368nN-IzjqcCHIEEbgteK6hS7ZyV5cv_BWA20d7Ye/exec';
 
  static Future<List<Adolescente>> fetchAdolescentes() async {
     final response = await http
@@ -150,5 +150,25 @@ static Future<List<Map<String, String>>> getVisitantesHoje() async {
     throw Exception('Erro ao buscar presenças (HTTP ${response.statusCode})');
   }
 }
+
+static Future<List<Map<String, String>>> getVisitantesSemana() async {
+  final uri = Uri.parse('$baseUrl?action=getVisitantesSemana');
+  final res = await http.get(uri);
+
+  if (res.statusCode != 200) {
+    throw Exception('Erro ${res.statusCode}');
+  }
+
+  final data = jsonDecode(res.body);
+  if (data is! Map || data['visitantes'] == null) return [];
+
+  final visitantes = data['visitantes'] as List;
+  return visitantes.map<Map<String, String>>((v) => {
+    'nome': v['nome'] ?? '',
+    'telefone': v['telefone'] ?? '',
+    'idade': v['idade'] ?? '',
+  }).toList();
+}
+
 
 }
