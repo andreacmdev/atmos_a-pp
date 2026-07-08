@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/adolescente.dart';
 import '../services/google_sheets_api.dart';
+import '../theme/brand_colors.dart';
+import '../widgets/atmos_ui.dart';
+import 'cartao_aniversario_screen.dart';
 
 class AniversariantesScreen extends StatefulWidget {
   const AniversariantesScreen({super.key});
@@ -127,55 +130,101 @@ class _AniversariantesScreenState extends State<AniversariantesScreen> {
       body: carregando
           ? const Center(child: CircularProgressIndicator())
           : aniversariantes.isEmpty
-              ? Center(
-                  child: Text(
-                    'Nenhum aniversariante em $tituloMes.',
-                    style: Theme.of(context).textTheme.bodyMedium,
-                  ),
+              ? AtmosEmptyState(
+                  icon: Icons.cake_outlined,
+                  title: 'Nenhum aniversariante',
+                  message: 'Não há aniversariantes em $tituloMes.',
                 )
-              : ListView.builder(
-                  padding: const EdgeInsets.only(bottom: 16),
-                  itemCount: diasOrdenados.length,
-                  itemBuilder: (_, idx) {
-                    final dia = diasOrdenados[idx];
-                    final listaDoDia = porDia[dia]!;
-                    final nomeMes   = DateFormat.MMMM().format(DateTime(ano, mes, 1));
+              : ListView(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+                  children: [
+                    AtmosInfoHeader(
+                      icon: Icons.cake,
+                      title: '${aniversariantes.length} aniversariante(s)',
+                      subtitle: 'em $tituloMes',
+                    ),
+                    const SizedBox(height: 16),
+                    ...diasOrdenados.map((dia) {
+                      final listaDoDia = porDia[dia]!;
+                      final nomeMes = DateFormat.MMMM().format(
+                        DateTime(ano, mes, 1),
+                      );
 
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Cabeçalho do dia
-                        Container(
-                          width: double.infinity,
-                          color: Theme.of(context).colorScheme.surfaceVariant,
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 16, vertical: 8),
-                          child: Text(
-                            '$dia de $nomeMes',
-                            style: Theme.of(context).textTheme.titleMedium,
-                          ),
-                        ),
-                        // Itens do dia
-                        ...listaDoDia.map((a) {
-                          final dn = a.dataNascimento;
-                          final idade =
-                              dn == null ? null : _idadeNoAno(dn, ano, mes, dia);
-                          return ListTile(
-                            leading: const Icon(Icons.cake_outlined),
-                            title: Text(a.nome),
-                            subtitle: dn == null
-                                ? Text('Data de nascimento não informada',
-                                    style: TextStyle(color: corSubtle))
-                                : Text(
-                                    'Faz ${idade ?? '-'} em ${DateFormat('dd/MM').format(DateTime(ano, mes, dia))}',
-                                    style: TextStyle(color: corSubtle),
+                      return Card(
+                        margin: const EdgeInsets.only(bottom: 12),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 10,
+                              ),
+                              decoration: const BoxDecoration(
+                                color: BrandColors.warningSoft,
+                                borderRadius: BorderRadius.vertical(
+                                  top: Radius.circular(8),
+                                ),
+                              ),
+                              child: Text(
+                                '$dia de $nomeMes',
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .titleMedium
+                                    ?.copyWith(
+                                      color: BrandColors.navy,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                              ),
+                            ),
+                            ...listaDoDia.map((a) {
+                              final dn = a.dataNascimento;
+                              final idade = dn == null
+                                  ? null
+                                  : _idadeNoAno(dn, ano, mes, dia);
+                              return ListTile(
+                                leading: const CircleAvatar(
+                                  backgroundColor: BrandColors.yellow,
+                                  child: Icon(
+                                    Icons.cake_outlined,
+                                    color: BrandColors.navy,
                                   ),
-                          );
-                        }).toList(),
-                        const Divider(height: 1),
-                      ],
-                    );
-                  },
+                                ),
+                                title: Text(
+                                  a.nome,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                subtitle: dn == null
+                                    ? Text(
+                                        'Data de nascimento não informada',
+                                        style: TextStyle(color: corSubtle),
+                                      )
+                                    : Text(
+                                        'Faz ${idade ?? '-'} em ${DateFormat('dd/MM').format(DateTime(ano, mes, dia))}',
+                                        style: TextStyle(color: corSubtle),
+                                      ),
+                                trailing: const Icon(Icons.chevron_right),
+                                onTap: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => CartaoAniversarioScreen(
+                                        adolescente: a,
+                                        ano: ano,
+                                      ),
+                                    ),
+                                  );
+                                },
+                              );
+                            }),
+                          ],
+                        ),
+                      );
+                    }),
+                  ],
                 ),
     );
   }

@@ -52,23 +52,57 @@ class AtmosApp extends StatelessWidget {
       theme: ThemeData(
         colorScheme: colorScheme,
         useMaterial3: true,
-
-        // Botões preenchidos (usados no app)
+        scaffoldBackgroundColor: BrandColors.background,
         filledButtonTheme: FilledButtonThemeData(
           style: FilledButton.styleFrom(
             backgroundColor: BrandColors.magenta,
             foregroundColor: Colors.white,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(24),
+              borderRadius: BorderRadius.circular(18),
             ),
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+            minimumSize: const Size.fromHeight(52),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
             textStyle: const TextStyle(fontWeight: FontWeight.w600),
           ),
+        ),
+        inputDecorationTheme: InputDecorationTheme(
+          filled: true,
+          fillColor: Colors.white,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: BorderSide.none,
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: const BorderSide(color: BrandColors.divider),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide:
+                const BorderSide(color: BrandColors.magenta, width: 1.4),
+          ),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        ),
+        cardTheme: CardTheme(
+          color: BrandColors.card,
+          elevation: 0,
+          margin: EdgeInsets.zero,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+            side: const BorderSide(color: BrandColors.divider),
+          ),
+        ),
+        dividerTheme: const DividerThemeData(
+          color: BrandColors.divider,
+          thickness: 1,
+          space: 1,
         ),
         appBarTheme: const AppBarTheme(
           backgroundColor: BrandColors.navy,
           foregroundColor: Colors.white,
           elevation: 0,
+          centerTitle: false,
         ),
         drawerTheme: const DrawerThemeData(
           backgroundColor: Colors.white,

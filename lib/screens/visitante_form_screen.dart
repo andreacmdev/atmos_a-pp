@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/google_sheets_api.dart';
+import '../widgets/atmos_ui.dart';
 
 class VisitanteFormScreen extends StatefulWidget {
   const VisitanteFormScreen({super.key});
@@ -30,18 +31,18 @@ class _VisitanteFormScreenState extends State<VisitanteFormScreen> {
     return null;
   }
 
-
   String? _validaTelefone(String? v) {
-  if (v == null || v.trim().isEmpty) return null; // telefone não é obrigatório
-  final s = v.trim();
-  // Regex: começa com 55 e têm exatamente 13 dígitos
-  final regex = RegExp(r'^55[0-9]{11}$');
-  if (!regex.hasMatch(s)) {
-    return 'Use o formato: 5581XXXXXXXX';
+    if (v == null || v.trim().isEmpty) {
+      return null;
+    }
+    final s = v.trim();
+    // Regex: começa com 55 e têm exatamente 13 dígitos
+    final regex = RegExp(r'^55[0-9]{11}$');
+    if (!regex.hasMatch(s)) {
+      return 'Use o formato: 5581XXXXXXXX';
+    }
+    return null;
   }
-  return null;
-}
-
 
   String? _validaIdade(String? v) {
     final s = (v ?? '').trim();
@@ -81,52 +82,69 @@ class _VisitanteFormScreenState extends State<VisitanteFormScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('Adicionar Visitante')),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
         child: Form(
           key: _formKey,
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              TextFormField(
-                controller: _nomeCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Nome *',
-                  prefixIcon: Icon(Icons.person),
-                ),
-                textInputAction: TextInputAction.next,
-                validator: _validaNome,
+              const AtmosInfoHeader(
+                icon: Icons.person_add_alt,
+                title: 'Novo visitante',
+                subtitle:
+                    'Registre quem chegou hoje para a equipe acompanhar depois.',
               ),
-              const SizedBox(height: 12),
-              TextFormField(
-                  controller: _telCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Telefone (formato: 5581XXXXXXXX)',
-                    prefixIcon: Icon(Icons.phone),
+              const SizedBox(height: 16),
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(14),
+                  child: Column(
+                    children: [
+                      TextFormField(
+                        controller: _nomeCtrl,
+                        decoration: const InputDecoration(
+                          labelText: 'Nome *',
+                          prefixIcon: Icon(Icons.person),
+                        ),
+                        textInputAction: TextInputAction.next,
+                        validator: _validaNome,
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: _telCtrl,
+                        decoration: const InputDecoration(
+                          labelText: 'Telefone (formato: 5581XXXXXXXX)',
+                          prefixIcon: Icon(Icons.phone),
+                        ),
+                        keyboardType: TextInputType.number,
+                        textInputAction: TextInputAction.next,
+                        validator: _validaTelefone,
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: _idadeCtrl,
+                        decoration: const InputDecoration(
+                          labelText: 'Idade',
+                          prefixIcon: Icon(Icons.cake),
+                        ),
+                        keyboardType: TextInputType.number,
+                        validator: _validaIdade,
+                      ),
+                    ],
                   ),
-                  keyboardType: TextInputType.number,
-                  textInputAction: TextInputAction.next,
-                  validator: _validaTelefone,
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _idadeCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Idade',
-                  prefixIcon: Icon(Icons.cake),
                 ),
-                keyboardType: TextInputType.number,
-                validator: _validaIdade,
               ),
               const SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton.icon(
-                  onPressed: _enviando ? null : _salvar,
-                  icon: _enviando
-                      ? const SizedBox(
-                          width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
-                      : const Icon(Icons.person_add_alt),
-                  label: Text(_enviando ? 'Enviando...' : 'Salvar Visitante'),
-                ),
+              FilledButton.icon(
+                onPressed: _enviando ? null : _salvar,
+                icon: _enviando
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.person_add_alt),
+                label: Text(_enviando ? 'Enviando...' : 'Salvar Visitante'),
               ),
             ],
           ),

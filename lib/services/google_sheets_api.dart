@@ -1,6 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/adolescente.dart';
+import '../models/relatorio_individual.dart';
 
 class GoogleSheetsApi {
   static SupabaseClient get _client => Supabase.instance.client;
@@ -132,6 +133,74 @@ class GoogleSheetsApi {
     return _getVisitantesPorPeriodo(
       inicio: inicio.toIso8601String().split('T').first,
       fim: fim.toIso8601String().split('T').first,
+    );
+  }
+
+  static Future<RelatorioIndividual> fetchRelatorioIndividual({
+    required Adolescente adolescente,
+  }) async {
+    final hoje = DateTime.now().toIso8601String().split('T').first;
+    final eventosData = await _client
+        .from('eventos')
+        .select('id, data_evento, tipo, nome')
+        .lte('data_evento', hoje)
+        .order('data_evento', ascending: false);
+
+    if (eventosData.isEmpty) {
+      return RelatorioIndividual(
+        adolescente: adolescente,
+        eventos: const [],
+        porTipo: const [],
+      );
+    }
+
+    final eventoIds = eventosData.map((evento) => evento['id'].toString()).toList();
+    final presencasData = await _client
+        .from('presencas')
+        .select('evento_id')
+        .eq('adolescente_id', int.parse(adolescente.id))
+        .eq('presente', true)
+        .inFilter('evento_id', eventoIds);
+
+    final presentes = presencasData
+        .map((presenca) => presenca['evento_id'].toString())
+        .toSet();
+
+    final eventos = eventosData.map<EventoParticipacao>((evento) {
+      final id = evento['id'].toString();
+      return EventoParticipacao(
+        id: id,
+        data: DateTime.parse(evento['data_evento'].toString()),
+        tipo: evento['tipo'].toString(),
+        nome: evento['nome'].toString(),
+        presente: presentes.contains(id),
+      );
+    }).toList();
+
+    final porTipoMap = <String, List<EventoParticipacao>>{};
+    for (final evento in eventos) {
+      porTipoMap.putIfAbsent(evento.tipo, () => []).add(evento);
+    }
+
+    final porTipo = porTipoMap.entries.map((entry) {
+      final eventosDoTipo = entry.value;
+      return ParticipacaoPorTipo(
+        tipo: entry.key,
+        nome: _nomeEvento(entry.key),
+        presencas: eventosDoTipo.where((evento) => evento.presente).length,
+        totalEventos: eventosDoTipo.length,
+      );
+    }).toList()
+      ..sort((a, b) {
+        final byPresencas = b.presencas.compareTo(a.presencas);
+        if (byPresencas != 0) return byPresencas;
+        return b.percentual.compareTo(a.percentual);
+      });
+
+    return RelatorioIndividual(
+      adolescente: adolescente,
+      eventos: eventos,
+      porTipo: porTipo,
     );
   }
 

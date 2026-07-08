@@ -3,9 +3,11 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/tipo_evento.dart';
 import '../theme/brand_colors.dart';
+import '../widgets/atmos_ui.dart';
 import 'adolescente_form_screen.dart';
 import 'aniversariantes_screen.dart';
 import 'presenca_screen.dart';
+import 'relatorio_individual_screen.dart';
 import 'visitante_form_screen.dart';
 import 'visitantes_relatorio_screen.dart';
 
@@ -18,26 +20,50 @@ class HomeScreen extends StatelessWidget {
       showDragHandle: true,
       builder: (_) {
         const itens = TipoEvento.values;
-        return ListView.separated(
-          padding: const EdgeInsets.all(12),
+        return ListView.builder(
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+          shrinkWrap: true,
           itemBuilder: (ctx, i) {
             final te = itens[i];
-            return ListTile(
-              leading: const Icon(Icons.event_available),
-              title: Text(te.label),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => PresencaScreen(tipoEvento: te),
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: Card(
+                child: ListTile(
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 8,
                   ),
-                );
-              },
+                  leading: Container(
+                    width: 42,
+                    height: 42,
+                    decoration: BoxDecoration(
+                      color: BrandColors.magenta.withOpacity(0.10),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(
+                      Icons.event_available,
+                      color: BrandColors.magenta,
+                    ),
+                  ),
+                  title: Text(
+                    te.label,
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  subtitle: const Text('Marcar presença do evento'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => PresencaScreen(tipoEvento: te),
+                      ),
+                    );
+                  },
+                ),
+              ),
             );
           },
-          separatorBuilder: (_, __) => const Divider(height: 1),
           itemCount: itens.length,
         );
       },
@@ -50,15 +76,43 @@ class HomeScreen extends StatelessWidget {
       extendBodyBehindAppBar: true,
       drawer: Drawer(
         child: SafeArea(
-          child: Column(
+          child: ListView(
+            padding: EdgeInsets.zero,
             children: [
-              const SizedBox(height: 12),
-              Image.asset(
-                'assets/10.png',
-                width: 60,
-                height: 60,
-                fit: BoxFit.contain,
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+                child: Row(
+                  children: [
+                    Image.asset(
+                      'assets/10.png',
+                      width: 54,
+                      height: 54,
+                      fit: BoxFit.contain,
+                    ),
+                    const SizedBox(width: 12),
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'ATMOS Gestão',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w800,
+                              color: BrandColors.navy,
+                            ),
+                          ),
+                          SizedBox(height: 2),
+                          Text(
+                            'Presença e cuidado',
+                            style: TextStyle(color: BrandColors.textMuted),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
+              const _MenuGroupTitle('Eventos'),
               ListTile(
                 leading: const Icon(Icons.checklist),
                 title: const Text('Marcar Presença'),
@@ -68,6 +122,7 @@ class HomeScreen extends StatelessWidget {
                 },
               ),
               const Divider(),
+              const _MenuGroupTitle('Cadastros'),
               ListTile(
                 leading: const Icon(Icons.person_add_alt),
                 title: const Text('Adicionar Visitante'),
@@ -96,6 +151,7 @@ class HomeScreen extends StatelessWidget {
                 },
               ),
               const Divider(),
+              const _MenuGroupTitle('Relatórios'),
               ListTile(
                 leading: const Icon(Icons.cake),
                 title: const Text('Aniversariantes do mês'),
@@ -123,8 +179,22 @@ class HomeScreen extends StatelessWidget {
                   );
                 },
               ),
-              const Spacer(),
               const Divider(),
+              ListTile(
+                leading: const Icon(Icons.manage_search),
+                title: const Text('Relatório Individual'),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const RelatorioIndividualScreen(),
+                    ),
+                  );
+                },
+              ),
+              const Divider(),
+              const _MenuGroupTitle('Conta'),
               ListTile(
                 leading: const Icon(Icons.logout),
                 title: const Text('Sair'),
@@ -171,11 +241,11 @@ class HomeScreen extends StatelessWidget {
               children: [
                 Image.asset(
                   'assets/atmosw.png',
-                  width: 560,
-                  height: 360,
+                  width: 460,
+                  height: 260,
                   fit: BoxFit.contain,
                 ),
-                const SizedBox(height: 48),
+                const SizedBox(height: 32),
                 GestureDetector(
                   onTap: () => _abrirSelecaoEvento(context),
                   child: Image.asset(
@@ -190,6 +260,20 @@ class HomeScreen extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _MenuGroupTitle extends StatelessWidget {
+  final String text;
+
+  const _MenuGroupTitle(this.text);
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 14, 20, 6),
+      child: AtmosSectionTitle(title: text),
     );
   }
 }

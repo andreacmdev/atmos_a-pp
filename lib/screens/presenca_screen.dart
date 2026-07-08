@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import '../models/adolescente.dart';
 import '../models/tipo_evento.dart';
 import '../services/google_sheets_api.dart';
+import '../theme/brand_colors.dart';
 import 'dart:typed_data';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:pdf/widgets.dart' as pw;
@@ -111,57 +112,57 @@ class _PresencaScreenState extends State<PresencaScreen> {
   }
 
   Future<void> _alternarPresenca(Adolescente a) async {
-  final id = a.id;
-  final nome = a.nome;
+    final id = a.id;
+    final nome = a.nome;
 
-  if (carregandoIds.contains(id)) return; // evita toques duplos
+    if (carregandoIds.contains(id)) return; // evita toques duplos
 
-  final jaMarcado = registrados.contains(id);
-  setState(() => carregandoIds.add(id));
+    final jaMarcado = registrados.contains(id);
+    setState(() => carregandoIds.add(id));
 
-  try {
-    if (jaMarcado) {
-      // DESMARCAR
-      await GoogleSheetsApi.removerPresenca(
-        idAdolescente: id,
-        dataCulto: dataCulto,
-        tipoEvento: widget.tipoEvento.apiValue,
-      );
-      setState(() {
-        registrados.remove(id);
-      });
-      _showSnack('Presença removida: $nome');
-    } else {
-      // MARCAR
-      await GoogleSheetsApi.registrarPresenca(
-        idAdolescente: id,
-        dataCulto: dataCulto,
-        tipoEvento: widget.tipoEvento.apiValue,
-      );
-      setState(() {
-        registrados.add(id);
-      });
-      // opção: ainda oferecer desfazer imediato
-      ScaffoldMessenger.of(context).hideCurrentSnackBar();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Registrado: $nome (${widget.tipoEvento.label})'),
-          action: SnackBarAction(
-            label: 'DESFAZER',
-            onPressed: () => _desfazer(id, nome),
+    try {
+      if (jaMarcado) {
+        // DESMARCAR
+        await GoogleSheetsApi.removerPresenca(
+          idAdolescente: id,
+          dataCulto: dataCulto,
+          tipoEvento: widget.tipoEvento.apiValue,
+        );
+        setState(() {
+          registrados.remove(id);
+        });
+        _showSnack('Presença removida: $nome');
+      } else {
+        // MARCAR
+        await GoogleSheetsApi.registrarPresenca(
+          idAdolescente: id,
+          dataCulto: dataCulto,
+          tipoEvento: widget.tipoEvento.apiValue,
+        );
+        setState(() {
+          registrados.add(id);
+        });
+        // opção: ainda oferecer desfazer imediato
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Registrado: $nome (${widget.tipoEvento.label})'),
+            action: SnackBarAction(
+              label: 'DESFAZER',
+              onPressed: () => _desfazer(id, nome),
+            ),
+            duration: const Duration(seconds: 4),
           ),
-          duration: const Duration(seconds: 4),
-        ),
-      );
+        );
+      }
+    } catch (e) {
+      _showSnack(jaMarcado
+          ? 'Falha ao remover presença. Tente novamente.'
+          : 'Falha ao registrar presença. Tente novamente.');
+    } finally {
+      if (mounted) setState(() => carregandoIds.remove(id));
     }
-  } catch (e) {
-    _showSnack(jaMarcado
-        ? 'Falha ao remover presença. Tente novamente.'
-        : 'Falha ao registrar presença. Tente novamente.');
-  } finally {
-    if (mounted) setState(() => carregandoIds.remove(id));
   }
-}
 
   Future<void> _desfazer(String id, String nome) async {
     try {
@@ -187,24 +188,22 @@ class _PresencaScreenState extends State<PresencaScreen> {
 
   /// --------- PDF ---------
   Future<void> _exportarPdf() async {
-  try {
-    // --- PRESENTES DO DIA (evento atual) ---
-    final presentes = lista
-        .where((a) => registrados.contains(a.id))
-        .toList()
-      ..sort((a, b) => a.nome.toLowerCase().compareTo(b.nome.toLowerCase()));
+    try {
+      // --- PRESENTES DO DIA (evento atual) ---
+      final presentes = lista.where((a) => registrados.contains(a.id)).toList()
+        ..sort((a, b) => a.nome.toLowerCase().compareTo(b.nome.toLowerCase()));
 
-    final total = lista.length;
-    final totalPresentes = presentes.length;
-    final totalFaltantes = total - totalPresentes;
+      final total = lista.length;
+      final totalPresentes = presentes.length;
+      final totalFaltantes = total - totalPresentes;
 
-    // --- VISITANTES DO DIA (independente do tipo de evento) ---
-    // Pressupondo que você já tem este método no service.
-    // Ele deve retornar: List<Map<String,String>> com chaves: 'nome','telefone','idade'
-    final visitantesHoje = await GoogleSheetsApi.getVisitantesHoje();
-    final qtdVisitantes = visitantesHoje.length;
+      // --- VISITANTES DO DIA (independente do tipo de evento) ---
+      // Pressupondo que você já tem este método no service.
+      // Ele deve retornar: List<Map<String,String>> com chaves: 'nome','telefone','idade'
+      final visitantesHoje = await GoogleSheetsApi.getVisitantesHoje();
+      final qtdVisitantes = visitantesHoje.length;
 
-    // --- FONTES (via assets, com fallback seguro) ---
+      // --- FONTES (via assets, com fallback seguro) ---
       pw.Font fontRegular;
       pw.Font fontBold;
       try {
@@ -214,164 +213,207 @@ class _PresencaScreenState extends State<PresencaScreen> {
         // ignore: avoid_print
         print('FONTES OK: regular=${r.lengthInBytes}, bold=${b.lengthInBytes}');
         fontRegular = pw.Font.ttf(r);
-        fontBold    = pw.Font.ttf(b);
+        fontBold = pw.Font.ttf(b);
       } catch (e) {
         // ignore: avoid_print
         print('FALHA FONTES, usando Helvetica: $e');
         fontRegular = pw.Font.helvetica();
-        fontBold    = pw.Font.helveticaBold();
+        fontBold = pw.Font.helveticaBold();
       }
-    // --- LOGO (opcional) ---
-    Uint8List? logoBytes;
-    try {
-      final data = await rootBundle.load('assets/LOGO.png'); // ajuste caso sua logo esteja em outro caminho
-      logoBytes = data.buffer.asUint8List();
-    } catch (_) {
-      logoBytes = null;
-    }
+      // --- LOGO (opcional) ---
+      Uint8List? logoBytes;
+      try {
+        final data = await rootBundle.load(
+            'assets/LOGO.png'); // ajuste caso sua logo esteja em outro caminho
+        logoBytes = data.buffer.asUint8List();
+      } catch (_) {
+        logoBytes = null;
+      }
 
-    final pdf = pw.Document();
+      final pdf = pw.Document();
 
-    final estiloTitulo     = pw.TextStyle(font: fontBold,    fontSize: 18);
-    final estiloSub        = pw.TextStyle(font: fontRegular, fontSize: 12);
-    final estiloCabecalho  = pw.TextStyle(font: fontBold,    fontSize: 12);
-    final estiloLinha      = pw.TextStyle(font: fontRegular, fontSize: 11);
+      final estiloTitulo = pw.TextStyle(font: fontBold, fontSize: 18);
+      final estiloSub = pw.TextStyle(font: fontRegular, fontSize: 12);
+      final estiloCabecalho = pw.TextStyle(font: fontBold, fontSize: 12);
+      final estiloLinha = pw.TextStyle(font: fontRegular, fontSize: 11);
 
-    final agora    = DateTime.now();
-    final geradoEm = DateFormat('dd/MM/yyyy HH:mm').format(agora);
-    final dataBR   = DateFormat('dd/MM/yyyy').format(agora);
-    final evento   = widget.tipoEvento.label;
+      final agora = DateTime.now();
+      final geradoEm = DateFormat('dd/MM/yyyy HH:mm').format(agora);
+      final dataBR = DateFormat('dd/MM/yyyy').format(agora);
+      final evento = widget.tipoEvento.label;
 
-    pdf.addPage(
-      pw.MultiPage(
-        pageTheme: pw.PageTheme(
-          margin: const pw.EdgeInsets.all(24),
-          theme: pw.ThemeData.withFont(base: fontRegular, bold: fontBold),
-        ),
-        header: (_) => pw.Row(
-          mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-          crossAxisAlignment: pw.CrossAxisAlignment.center,
-          children: [
-            pw.Row(
-              children: [
-                if (logoBytes != null)
-                  pw.Container(
-                    width: 36, height: 36, margin: const pw.EdgeInsets.only(right: 12),
-                    child: pw.Image(pw.MemoryImage(logoBytes)),
-                  ),
-                pw.Column(
-                  crossAxisAlignment: pw.CrossAxisAlignment.start,
-                  children: [
-                    pw.Text('Relatório de Presenças', style: estiloTitulo),
-                    pw.Text('Evento: $evento • Data: $dataBR', style: estiloSub),
-                  ],
-                ),
-              ],
-            ),
-            pw.Text('Gerado: $geradoEm', style: estiloSub),
-          ],
-        ),
-        footer: (ctx) => pw.Align(
-          alignment: pw.Alignment.centerRight,
-          child: pw.Text('Página ${ctx.pageNumber}/${ctx.pagesCount}', style: estiloSub),
-        ),
-        build: (_) => [
-          // --- RESUMO ---
-          pw.SizedBox(height: 12),
-          pw.Row(
+      pdf.addPage(
+        pw.MultiPage(
+          pageTheme: pw.PageTheme(
+            margin: const pw.EdgeInsets.all(24),
+            theme: pw.ThemeData.withFont(base: fontRegular, bold: fontBold),
+          ),
+          header: (_) => pw.Row(
             mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: pw.CrossAxisAlignment.center,
             children: [
-              pw.Text('Total cadastrados: $total', style: estiloSub),
-              pw.Text('Presentes: $totalPresentes', style: estiloSub),
-              pw.Text('Faltantes: $totalFaltantes', style: estiloSub),
-              pw.Text('Visitantes (hoje): $qtdVisitantes', style: estiloSub),
+              pw.Row(
+                children: [
+                  if (logoBytes != null)
+                    pw.Container(
+                      width: 36,
+                      height: 36,
+                      margin: const pw.EdgeInsets.only(right: 12),
+                      child: pw.Image(pw.MemoryImage(logoBytes)),
+                    ),
+                  pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    children: [
+                      pw.Text('Relatório de Presenças', style: estiloTitulo),
+                      pw.Text('Evento: $evento • Data: $dataBR',
+                          style: estiloSub),
+                    ],
+                  ),
+                ],
+              ),
+              pw.Text('Gerado: $geradoEm', style: estiloSub),
             ],
           ),
-          pw.SizedBox(height: 16),
-
-          // --- TABELA DE PRESENTES ---
-          if (presentes.isEmpty)
-            pw.Text('Nenhum presente registrado para este evento hoje.', style: estiloSub)
-          else
-            pw.Table(
-              border: pw.TableBorder.all(width: 0.5, color: PdfColors.grey600),
-              columnWidths: { 0: const pw.FixedColumnWidth(36), 1: const pw.FlexColumnWidth(3), },
+          footer: (ctx) => pw.Align(
+            alignment: pw.Alignment.centerRight,
+            child: pw.Text('Página ${ctx.pageNumber}/${ctx.pagesCount}',
+                style: estiloSub),
+          ),
+          build: (_) => [
+            // --- RESUMO ---
+            pw.SizedBox(height: 12),
+            pw.Row(
+              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
               children: [
-                pw.TableRow(
-                  decoration: const pw.BoxDecoration(color: PdfColors.grey300),
-                  children: [
-                    pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('#',    style: estiloCabecalho)),
-                    pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('Nome', style: estiloCabecalho)),
-                  ],
-                ),
-                ...List.generate(presentes.length, (i) {
-                  final a = presentes[i];
-                  return pw.TableRow(
-                    children: [
-                      pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('${i + 1}', style: estiloLinha)),
-                      pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text(a.nome,     style: estiloLinha)),
-                    ],
-                  );
-                }),
+                pw.Text('Total cadastrados: $total', style: estiloSub),
+                pw.Text('Presentes: $totalPresentes', style: estiloSub),
+                pw.Text('Faltantes: $totalFaltantes', style: estiloSub),
+                pw.Text('Visitantes (hoje): $qtdVisitantes', style: estiloSub),
               ],
             ),
+            pw.SizedBox(height: 16),
 
-          // --- SEÇÃO DE VISITANTES ---
-          pw.SizedBox(height: 24),
-          pw.Text('Visitantes de Hoje', style: estiloTitulo),
-          pw.SizedBox(height: 8),
-
-          if (visitantesHoje.isEmpty)
-            pw.Text('Nenhum visitante registrado hoje.', style: estiloSub)
-          else
-            pw.Table(
-              border: pw.TableBorder.all(width: 0.5, color: PdfColors.grey600),
-              columnWidths: {
-                0: const pw.FixedColumnWidth(36),  // #
-                1: const pw.FlexColumnWidth(3),    // Nome
-                2: const pw.FlexColumnWidth(2),    // Telefone
-                3: const pw.FixedColumnWidth(50),  // Idade
-              },
-              children: [
-                pw.TableRow(
-                  decoration: const pw.BoxDecoration(color: PdfColors.grey300),
-                  children: [
-                    pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('#',        style: estiloCabecalho)),
-                    pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('Nome',     style: estiloCabecalho)),
-                    pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('Telefone', style: estiloCabecalho)),
-                    pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('Idade',    style: estiloCabecalho)),
-                  ],
-                ),
-                ...List.generate(visitantesHoje.length, (i) {
-                  final v   = visitantesHoje[i];
-                  final nm  = (v['nome']     ?? '').trim();
-                  final tel = (v['telefone'] ?? '').trim().isEmpty ? '-' : (v['telefone'] ?? '').trim();
-                  final idd = (v['idade']    ?? '').trim().isEmpty ? '-' : (v['idade']    ?? '').trim();
-                  return pw.TableRow(
+            // --- TABELA DE PRESENTES ---
+            if (presentes.isEmpty)
+              pw.Text('Nenhum presente registrado para este evento hoje.',
+                  style: estiloSub)
+            else
+              pw.Table(
+                border:
+                    pw.TableBorder.all(width: 0.5, color: PdfColors.grey600),
+                columnWidths: {
+                  0: const pw.FixedColumnWidth(36),
+                  1: const pw.FlexColumnWidth(3),
+                },
+                children: [
+                  pw.TableRow(
+                    decoration:
+                        const pw.BoxDecoration(color: PdfColors.grey300),
                     children: [
-                      pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('${i + 1}', style: estiloLinha)),
-                      pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text(nm,         style: estiloLinha)),
-                      pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text(tel,        style: estiloLinha)),
-                      pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text(idd,        style: estiloLinha)),
+                      pw.Padding(
+                          padding: const pw.EdgeInsets.all(6),
+                          child: pw.Text('#', style: estiloCabecalho)),
+                      pw.Padding(
+                          padding: const pw.EdgeInsets.all(6),
+                          child: pw.Text('Nome', style: estiloCabecalho)),
                     ],
-                  );
-                }),
-              ],
-            ),
-        ],
-      ),
-    );
+                  ),
+                  ...List.generate(presentes.length, (i) {
+                    final a = presentes[i];
+                    return pw.TableRow(
+                      children: [
+                        pw.Padding(
+                            padding: const pw.EdgeInsets.all(6),
+                            child: pw.Text('${i + 1}', style: estiloLinha)),
+                        pw.Padding(
+                            padding: const pw.EdgeInsets.all(6),
+                            child: pw.Text(a.nome, style: estiloLinha)),
+                      ],
+                    );
+                  }),
+                ],
+              ),
 
-    final bytes = await pdf.save();
-    final fileName = 'relatorio_${widget.tipoEvento.apiValue}_${dataCulto}.pdf';
-    await Printing.sharePdf(bytes: bytes, filename: fileName);
-    _showSnack('PDF gerado: $fileName');
-  } catch (e) {
-    // ignore: avoid_print
-    print('ERRO PDF: $e');
-    _showSnack('Falha ao gerar PDF: $e');
+            // --- SEÇÃO DE VISITANTES ---
+            pw.SizedBox(height: 24),
+            pw.Text('Visitantes de Hoje', style: estiloTitulo),
+            pw.SizedBox(height: 8),
+
+            if (visitantesHoje.isEmpty)
+              pw.Text('Nenhum visitante registrado hoje.', style: estiloSub)
+            else
+              pw.Table(
+                border:
+                    pw.TableBorder.all(width: 0.5, color: PdfColors.grey600),
+                columnWidths: {
+                  0: const pw.FixedColumnWidth(36), // #
+                  1: const pw.FlexColumnWidth(3), // Nome
+                  2: const pw.FlexColumnWidth(2), // Telefone
+                  3: const pw.FixedColumnWidth(50), // Idade
+                },
+                children: [
+                  pw.TableRow(
+                    decoration:
+                        const pw.BoxDecoration(color: PdfColors.grey300),
+                    children: [
+                      pw.Padding(
+                          padding: const pw.EdgeInsets.all(6),
+                          child: pw.Text('#', style: estiloCabecalho)),
+                      pw.Padding(
+                          padding: const pw.EdgeInsets.all(6),
+                          child: pw.Text('Nome', style: estiloCabecalho)),
+                      pw.Padding(
+                          padding: const pw.EdgeInsets.all(6),
+                          child: pw.Text('Telefone', style: estiloCabecalho)),
+                      pw.Padding(
+                          padding: const pw.EdgeInsets.all(6),
+                          child: pw.Text('Idade', style: estiloCabecalho)),
+                    ],
+                  ),
+                  ...List.generate(visitantesHoje.length, (i) {
+                    final v = visitantesHoje[i];
+                    final nm = (v['nome'] ?? '').trim();
+                    final tel = (v['telefone'] ?? '').trim().isEmpty
+                        ? '-'
+                        : (v['telefone'] ?? '').trim();
+                    final idd = (v['idade'] ?? '').trim().isEmpty
+                        ? '-'
+                        : (v['idade'] ?? '').trim();
+                    return pw.TableRow(
+                      children: [
+                        pw.Padding(
+                            padding: const pw.EdgeInsets.all(6),
+                            child: pw.Text('${i + 1}', style: estiloLinha)),
+                        pw.Padding(
+                            padding: const pw.EdgeInsets.all(6),
+                            child: pw.Text(nm, style: estiloLinha)),
+                        pw.Padding(
+                            padding: const pw.EdgeInsets.all(6),
+                            child: pw.Text(tel, style: estiloLinha)),
+                        pw.Padding(
+                            padding: const pw.EdgeInsets.all(6),
+                            child: pw.Text(idd, style: estiloLinha)),
+                      ],
+                    );
+                  }),
+                ],
+              ),
+          ],
+        ),
+      );
+
+      final bytes = await pdf.save();
+      final fileName =
+          'relatorio_${widget.tipoEvento.apiValue}_${dataCulto}.pdf';
+      await Printing.sharePdf(bytes: bytes, filename: fileName);
+      _showSnack('PDF gerado: $fileName');
+    } catch (e) {
+      // ignore: avoid_print
+      print('ERRO PDF: $e');
+      _showSnack('Falha ao gerar PDF: $e');
+    }
   }
-}
+
   /// --------- FIM PDF ---------
 
   /// --------- PESQUISA ---------
@@ -401,13 +443,14 @@ class _PresencaScreenState extends State<PresencaScreen> {
   /// Remove acentos e coloca em minúsculas (busca + amigável)
   String _normalize(String s) {
     const from = 'áàâãäÁÀÂÃÄéèêëÉÈÊËíìîïÍÌÎÏóòôõÖÓÒÔÕÖúùûüÚÙÛÜçÇñÑ';
-    const to   = 'aaaaaAAAAAeeeeEEEEiiiiIIIIoooooOOOOOUUUUuuuuUUUUcCnN';
+    const to = 'aaaaaAAAAAeeeeEEEEiiiiIIIIoooooOOOOOUUUUuuuuUUUUcCnN';
     var out = s.toLowerCase();
     for (var i = 0; i < from.length && i < to.length; i++) {
       out = out.replaceAll(from[i], to[i]);
     }
     return out;
   }
+
   /// --------- FIM PESQUISA ---------
 
   @override
@@ -458,43 +501,105 @@ class _PresencaScreenState extends State<PresencaScreen> {
       ),
       body: Column(
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+          Container(
+            width: double.infinity,
+            margin: const EdgeInsets.fromLTRB(16, 12, 16, 10),
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: BrandColors.navy,
+              borderRadius: BorderRadius.circular(8),
+            ),
             child: Row(
               children: [
-                Text(
-                  'Exibindo ${visiveis.length} de ${lista.length} • Registrados hoje: ${registrados.length}',
-                  style: Theme.of(context).textTheme.bodySmall,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        widget.tipoEvento.label,
+                        style:
+                            Theme.of(context).textTheme.titleMedium?.copyWith(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Exibindo ${visiveis.length} de ${lista.length}',
+                        style: const TextStyle(color: Colors.white70),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(99),
+                  ),
+                  child: Text(
+                    '${registrados.length}/${lista.length}',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
                 ),
               ],
             ),
           ),
-          const Divider(height: 1),
           Expanded(
-            child: ListView.separated(
-              padding: const EdgeInsets.only(bottom: 12),
+            child: ListView.builder(
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
               itemBuilder: (context, i) {
                 final a = visiveis[i];
                 final isLoading = carregandoIds.contains(a.id);
                 final isDone = registrados.contains(a.id);
 
-                  return Opacity(
-                    opacity: isLoading ? 0.6 : 1.0, // (opcional) dá um feedback visual extra
+                return Opacity(
+                  opacity: isLoading ? 0.6 : 1.0,
+                  child: Card(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    color: isDone ? BrandColors.successSoft : Colors.white,
                     child: ListTile(
-                      enabled: !isLoading, // desabilita visual + sem foco
-                      title: Text(a.nome),
+                      enabled: !isLoading,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 4,
+                      ),
+                      title: Text(
+                        a.nome,
+                        style: TextStyle(
+                          fontWeight:
+                              isDone ? FontWeight.w700 : FontWeight.w500,
+                          color: BrandColors.navy,
+                        ),
+                      ),
                       leading: isLoading
                           ? const SizedBox(
                               width: 24,
                               height: 24,
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
-                          : (isDone
-                              ? const Icon(Icons.check_circle, color: Colors.green)
-                              : const Icon(Icons.person_outline)),
+                          : CircleAvatar(
+                              radius: 18,
+                              backgroundColor: isDone
+                                  ? BrandColors.success
+                                  : BrandColors.background,
+                              child: Icon(
+                                isDone ? Icons.check : Icons.person_outline,
+                                size: 20,
+                                color: isDone
+                                    ? Colors.white
+                                    : BrandColors.textMuted,
+                              ),
+                            ),
                       trailing: Checkbox(
                         value: isDone,
-                        onChanged: isLoading ? null : (_) => _alternarPresenca(a),
+                        activeColor: BrandColors.success,
+                        onChanged:
+                            isLoading ? null : (_) => _alternarPresenca(a),
                       ),
                       onTap: isLoading ? null : () => _alternarPresenca(a),
                       onLongPress: (isDone && !isLoading)
@@ -503,14 +608,17 @@ class _PresencaScreenState extends State<PresencaScreen> {
                                 context: context,
                                 builder: (_) => AlertDialog(
                                   title: const Text('Remover presença?'),
-                                  content: Text('Deseja remover a presença de ${a.nome}?'),
+                                  content: Text(
+                                      'Deseja remover a presença de ${a.nome}?'),
                                   actions: [
                                     TextButton(
-                                      onPressed: () => Navigator.pop(context, false),
+                                      onPressed: () =>
+                                          Navigator.pop(context, false),
                                       child: const Text('Cancelar'),
                                     ),
                                     FilledButton(
-                                      onPressed: () => Navigator.pop(context, true),
+                                      onPressed: () =>
+                                          Navigator.pop(context, true),
                                       child: const Text('Remover'),
                                     ),
                                   ],
@@ -520,9 +628,9 @@ class _PresencaScreenState extends State<PresencaScreen> {
                             }
                           : null,
                     ),
+                  ),
                 );
               },
-              separatorBuilder: (_, __) => const Divider(height: 1),
               itemCount: visiveis.length,
             ),
           ),
