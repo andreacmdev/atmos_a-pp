@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'screens/home_screen.dart';
+import 'screens/login_screen.dart';
 import 'theme/brand_colors.dart';
 
 Future<void> main() async {
@@ -14,6 +16,12 @@ Future<void> main() async {
   // Carrega dados de data para pt_BR (e pt como fallback)
   await initializeDateFormatting('pt_BR', null);
   await initializeDateFormatting('pt', null);
+
+  await Supabase.initialize(
+    url: 'https://lbxipyezqhjlivvpojjn.supabase.co',
+    anonKey:
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxieGlweWV6cWhqbGl2dnBvampuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM1MTgxNDgsImV4cCI6MjA5OTA5NDE0OH0.jjZdg3tFC1qoez310ElbLKC6pWErlfHQjNhrS_XDSmw',
+  );
 
   runApp(const AtmosApp());
 }
@@ -66,7 +74,24 @@ class AtmosApp extends StatelessWidget {
           backgroundColor: Colors.white,
         ),
       ),
-      home: const HomeScreen(),
+      home: const AuthGate(),
+    );
+  }
+}
+
+class AuthGate extends StatelessWidget {
+  const AuthGate({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final auth = Supabase.instance.client.auth;
+
+    return StreamBuilder<AuthState>(
+      stream: auth.onAuthStateChange,
+      builder: (context, snapshot) {
+        final hasSession = auth.currentSession != null;
+        return hasSession ? const HomeScreen() : const LoginScreen();
+      },
     );
   }
 }

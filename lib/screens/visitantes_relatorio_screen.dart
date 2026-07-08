@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../services/google_sheets_api.dart';
 import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
+
 
 class VisitantesSemanaScreen extends StatefulWidget {
   const VisitantesSemanaScreen({super.key});
@@ -43,6 +45,34 @@ class _VisitantesSemanaScreenState extends State<VisitantesSemanaScreen> {
       SnackBar(content: Text('Telefone copiado: $telefone')),
     );
   }
+
+  void _abrirWhatsapp(String telefone) async {
+  if (telefone.trim().isEmpty) return;
+  // Remove tudo que não for número
+  String nums = telefone.replaceAll(RegExp(r'[^0-9]'), '');
+  // Garante que começa com 55 (Brasil)
+  if (nums.length == 11) {
+    // Exemplo: 99 9724-2623
+    nums = "55$nums";
+  } else if (nums.length == 10) {
+    // Exemplo: 99 724-2623 sem o 9
+    nums = "55${nums}"; 
+  } else if (!nums.startsWith("55")) {
+    // Última garantia
+    nums = "55$nums";
+  }
+  final url = Uri.parse("https://wa.me/$nums");
+  if (await canLaunchUrl(url)) {
+    await launchUrl(url, mode: LaunchMode.externalApplication);
+  } else {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Não foi possível abrir o WhatsApp')),
+    );
+  }
+}
+
+
+
 
   @override
   Widget build(BuildContext context) {
@@ -130,12 +160,25 @@ class _VisitantesSemanaScreenState extends State<VisitantesSemanaScreen> {
                                           const TextStyle(color: Colors.grey)),
                               ],
                             ),
-                            trailing: IconButton(
-                              tooltip: 'Copiar telefone',
-                              icon: const Icon(Icons.copy),
-                              onPressed: () =>
-                                  _copiarTelefone(v['telefone'] ?? ''),
-                            ),
+                              trailing: Row(
+                                  mainAxisSize: MainAxisSize.min, // ESSENCIAL!
+                                  children: [
+                                    IconButton(
+                                      tooltip: 'Copiar telefone',
+                                      icon: Icon(Icons.copy),
+                                      onPressed: () => _copiarTelefone(v['telefone'] ?? ''),
+                                    ),
+                                    IconButton(
+                                      tooltip: 'Abrir WhatsApp',
+                                        icon: Image.asset(
+                                            'assets/whatsapp.png',
+                                            width: 22,
+                                            height: 22,
+                                          ),
+                                      onPressed: () => _abrirWhatsapp(v['telefone'] ?? ''),
+                                    ),
+                                  ],
+                                ),
                           ),
                         );
                       },

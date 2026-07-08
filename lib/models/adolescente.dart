@@ -3,33 +3,35 @@ class Adolescente {
   final String nome;
   final DateTime? dataNascimento;
   final String? telefone;
+  final bool ativo;
 
   Adolescente({
     required this.id,
     required this.nome,
     this.dataNascimento,
     this.telefone,
+    this.ativo = true,
   });
 
-  // Método para criar um Adolescente a partir de um JSON (ex: vindo da API)
   factory Adolescente.fromJson(Map<String, dynamic> json) {
     return Adolescente(
-      id: json['id'] ?? '',
-      nome: json['nome'] ?? '',
+      id: (json['id'] ?? '').toString(),
+      nome: (json['nome'] ?? '').toString(),
       dataNascimento: json['data_nascimento'] != null
-          ? DateTime.tryParse(json['data_nascimento'])
+          ? DateTime.tryParse(json['data_nascimento'].toString())
           : null,
-      telefone: json['telefone'],
+      telefone: json['telefone']?.toString(),
+      ativo: json['ativo'] != false,
     );
   }
 
-  // Método para converter um Adolescente em um Map (ex: para enviar pro backend)
   Map<String, dynamic> toJson() {
     return {
       'id': id,
       'nome': nome,
-      'data_nascimento': dataNascimento?.toIso8601String(),
+      'data_nascimento': dataNascimento?.toIso8601String().split('T').first,
       'telefone': telefone,
+      'ativo': ativo,
     };
   }
 }

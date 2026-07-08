@@ -1,174 +1,234 @@
-import 'dart:convert';
-import 'package:http/http.dart' as http;
+import 'package:supabase_flutter/supabase_flutter.dart';
+
 import '../models/adolescente.dart';
 
 class GoogleSheetsApi {
-  static const String baseUrl = 'https://script.google.com/macros/s/AKfycbw4CenBeOYFSIuDjRJqrZvxIid368nN-IzjqcCHIEEbgteK6hS7ZyV5cv_BWA20d7Ye/exec';
+  static SupabaseClient get _client => Supabase.instance.client;
 
- static Future<List<Adolescente>> fetchAdolescentes() async {
-    final response = await http
-        .get(Uri.parse('$baseUrl?action=getAdolescentes'))
-        .timeout(const Duration(seconds: 20));
+  static Future<List<Adolescente>> fetchAdolescentes() async {
+    final data = await _client
+        .from('adolescentes')
+        .select('id, nome, data_nascimento, telefone, ativo')
+        .eq('ativo', true)
+        .order('nome');
 
-    if (response.statusCode >= 200 && response.statusCode < 300) {
-      final data = jsonDecode(response.body) as List<dynamic>;
-      return data.map((json) => Adolescente.fromJson(json)).toList();
-    } else {
-      throw Exception('Erro ao buscar adolescentes (HTTP ${response.statusCode})');
-    }
+    return data.map((json) => Adolescente.fromJson(json)).toList();
   }
 
-static Future<void> registrarPresenca({
-  required String idAdolescente,
-  required String dataCulto,
-  String registradoPor = 'André',
-  String? tipoEvento,
-}) async {
-  final uri = Uri.parse(baseUrl);
+  static Future<Adolescente> cadastrarAdolescente({
+    required String nome,
+    DateTime? dataNascimento,
+    String? telefone,
+  }) async {
+    final inserted = await _client
+        .from('adolescentes')
+        .insert({
+          'nome': nome.trim(),
+          'data_nascimento': dataNascimento?.toIso8601String().split('T').first,
+          'telefone': _emptyToNull(telefone),
+          'telefone_original': _emptyToNull(telefone),
+          'created_by': _client.auth.currentUser?.id,
+          'ativo': true,
+        })
+        .select('id, nome, data_nascimento, telefone, ativo')
+        .single();
 
-  final response = await http
-      .post(
-        uri,
-        headers: {
-          // ajuda o GAS a entender o formato
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: {
-          'action': 'registrarPresenca',
-          'id': idAdolescente,
-          'data': dataCulto,
-          'registrado_por': registradoPor,
-          if (tipoEvento != null) 'tipo_evento': tipoEvento,
-        },
-      )
-      .timeout(const Duration(seconds: 20));
-
-  // Log de diagnóstico (aparece no console do Flutter)
-  // ignore: avoid_print
-  print('registrarPresenca -> code=${response.statusCode} body=${response.body}');
-
-  // ✅ Trate 2xx e 3xx como sucesso (GAS pode responder 302 após executar)
-  final ok = response.statusCode >= 200 && response.statusCode < 400;
-  if (!ok) {
-    throw Exception('Erro ao registrar presença (HTTP ${response.statusCode})');
-    }
+    return Adolescente.fromJson(inserted);
   }
 
+  static Future<void> registrarPresenca({
+    required String idAdolescente,
+    required String dataCulto,
+    String registradoPor = 'App',
+    String? tipoEvento,
+  }) async {
+    final eventoId = await _ensureEvento(
+      dataCulto: dataCulto,
+      tipoEvento: tipoEvento,
+    );
 
+    await _client.from('presencas').upsert(
+      {
+        'evento_id': eventoId,
+        'adolescente_id': int.parse(idAdolescente),
+        'presente': true,
+        'registrado_por': registradoPor,
+        'registrado_por_user': _client.auth.currentUser?.id,
+        'updated_at': DateTime.now().toIso8601String(),
+      },
+      onConflict: 'evento_id,adolescente_id',
+    );
+  }
 
   static Future<void> removerPresenca({
-  required String idAdolescente,
-  required String dataCulto,       // yyyy-MM-dd
-  required String tipoEvento,      // 'culto' | 'conectadao' | 'atmosfera'
-}) async {
-  final response = await http
-      .post(
-        Uri.parse(baseUrl),
-        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-        body: {
-          'action': 'removerPresenca',
-          'id': idAdolescente,
-          'data': dataCulto,
-          'tipo_evento': tipoEvento,
-        },
-      )
-      .timeout(const Duration(seconds: 20));
+    required String idAdolescente,
+    required String dataCulto,
+    required String tipoEvento,
+  }) async {
+    final eventoId = await _findEventoId(
+      dataCulto: dataCulto,
+      tipoEvento: tipoEvento,
+    );
 
-  final ok = response.statusCode >= 200 && response.statusCode < 400;
-  if (!ok) {
-    throw Exception('Erro ao remover presença (HTTP ${response.statusCode})');
+    if (eventoId == null) return;
+
+    await _client
+        .from('presencas')
+        .update({
+          'presente': false,
+          'registrado_por': 'Undo-App',
+          'registrado_por_user': _client.auth.currentUser?.id,
+          'updated_at': DateTime.now().toIso8601String(),
+        })
+        .eq('evento_id', eventoId)
+        .eq('adolescente_id', int.parse(idAdolescente));
   }
-  // opcional: validar body se quiser
-}
 
-
-static Future<void> registrarVisitante({
-  required String nome,
-  String? telefone,
-  String? idade, // manter string pra facilitar (ex.: "17")
-}) async {
-  final response = await http
-      .post(
-        Uri.parse(baseUrl),
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',          
-        },
-        body: {
-          'action': 'registrarVisitante',
-          'nome': nome,
-          if (telefone != null) 'telefone': telefone,
-          if (idade != null) 'idade': idade,
-        },
-      )
-      .timeout(const Duration(seconds: 20));
-
-  // ignore: avoid_print
-  print('registrarVisitante -> code=${response.statusCode} body=${response.body}');
-  final ok = response.statusCode >= 200 && response.statusCode < 400;
-  if (!ok) {
-    throw Exception('Erro ao registrar visitante (HTTP ${response.statusCode})');
+  static Future<void> registrarVisitante({
+    required String nome,
+    String? telefone,
+    String? idade,
+  }) async {
+    await _client.from('visitantes').insert({
+      'nome': nome.trim(),
+      'telefone': _emptyToNull(telefone),
+      'idade': int.tryParse((idade ?? '').trim()),
+      'data_registro': DateTime.now().toIso8601String().split('T').first,
+      'created_by': _client.auth.currentUser?.id,
+    });
   }
-}
 
+  static Future<List<Map<String, String>>> getVisitantesHoje() async {
+    final hoje = DateTime.now().toIso8601String().split('T').first;
+    return _getVisitantesPorPeriodo(inicio: hoje, fim: hoje);
+  }
 
-/// Visitantes do dia (hoje)
-static Future<List<Map<String, String>>> getVisitantesHoje() async {
-  final uri = Uri.parse('$baseUrl?action=getVisitantesHoje');
-  final resp = await http.get(uri).timeout(const Duration(seconds: 20));
+  static Future<Set<String>> fetchPresencas({
+    required String dataCulto,
+    required String tipoEvento,
+  }) async {
+    final eventoId = await _findEventoId(
+      dataCulto: dataCulto,
+      tipoEvento: tipoEvento,
+    );
 
-  if (resp.statusCode >= 200 && resp.statusCode < 400) {
-    final map = jsonDecode(resp.body) as Map<String, dynamic>;
-    final lista = (map['visitantes'] as List<dynamic>? ?? []);
+    if (eventoId == null) return <String>{};
 
-    return lista.map<Map<String, String>>((e) {
-      final m = (e as Map<String, dynamic>);
+    final data = await _client
+        .from('presencas')
+        .select('adolescente_id')
+        .eq('evento_id', eventoId)
+        .eq('presente', true);
+
+    return data.map((row) => row['adolescente_id'].toString()).toSet();
+  }
+
+  static Future<List<Map<String, String>>> getVisitantesSemana() async {
+    final now = DateTime.now();
+    final inicio = DateTime(now.year, now.month, now.day)
+        .subtract(Duration(days: now.weekday % 7));
+    final fim = inicio.add(const Duration(days: 6));
+
+    return _getVisitantesPorPeriodo(
+      inicio: inicio.toIso8601String().split('T').first,
+      fim: fim.toIso8601String().split('T').first,
+    );
+  }
+
+  static Future<List<Map<String, String>>> _getVisitantesPorPeriodo({
+    required String inicio,
+    required String fim,
+  }) async {
+    final data = await _client
+        .from('visitantes')
+        .select('nome, telefone, idade, data_registro')
+        .gte('data_registro', inicio)
+        .lte('data_registro', fim)
+        .order('created_at');
+
+    return data.map<Map<String, String>>((row) {
       return {
-        'nome': (m['nome'] ?? '').toString(),
-        'telefone': (m['telefone'] ?? '').toString(),
-        'idade': (m['idade'] ?? '').toString(),
-        // se seu backend também devolver, isso preenche; senão fica vazio
-        'data_registro': (m['data_registro'] ?? '').toString(),
+        'nome': (row['nome'] ?? '').toString(),
+        'telefone': (row['telefone'] ?? '').toString(),
+        'idade': (row['idade'] ?? '').toString(),
+        'data_registro': (row['data_registro'] ?? '').toString(),
       };
     }).toList();
   }
 
-  throw Exception('Erro ao buscar visitantes (HTTP ${resp.statusCode})');
-}
+  static Future<String> _ensureEvento({
+    required String dataCulto,
+    String? tipoEvento,
+  }) async {
+    final tipo = _normalizeTipoEvento(tipoEvento);
+    final existingId = await _findEventoId(
+      dataCulto: dataCulto,
+      tipoEvento: tipo,
+    );
+    if (existingId != null) return existingId;
 
-  static Future<Set<String>> fetchPresencas({
-  required String dataCulto,        // yyyy-MM-dd
-  required String tipoEvento,       // 'culto' | 'conectadao' | 'atmosfera'
-}) async {
-  final uri = Uri.parse('$baseUrl?action=getPresencas&data=$dataCulto&tipo_evento=$tipoEvento');
-  final response = await http.get(uri).timeout(const Duration(seconds: 20));
+    try {
+      final inserted = await _client
+          .from('eventos')
+          .insert({
+            'data_evento': dataCulto,
+            'tipo': tipo,
+            'nome': _nomeEvento(tipo),
+          })
+          .select('id')
+          .single();
 
-  if (response.statusCode >= 200 && response.statusCode < 400) {
-    final map = jsonDecode(response.body) as Map<String, dynamic>;
-    final list = (map['ids'] as List<dynamic>? ?? []).map((e) => e.toString()).toList();
-    return Set<String>.from(list);
-  } else {
-    throw Exception('Erro ao buscar presenças (HTTP ${response.statusCode})');
+      return inserted['id'].toString();
+    } on PostgrestException {
+      final createdByAnotherUser = await _findEventoId(
+        dataCulto: dataCulto,
+        tipoEvento: tipo,
+      );
+      if (createdByAnotherUser != null) return createdByAnotherUser;
+      rethrow;
+    }
   }
-}
 
-static Future<List<Map<String, String>>> getVisitantesSemana() async {
-  final uri = Uri.parse('$baseUrl?action=getVisitantesSemana');
-  final res = await http.get(uri);
+  static Future<String?> _findEventoId({
+    required String dataCulto,
+    required String tipoEvento,
+  }) async {
+    final data = await _client
+        .from('eventos')
+        .select('id')
+        .eq('data_evento', dataCulto)
+        .eq('tipo', _normalizeTipoEvento(tipoEvento))
+        .maybeSingle();
 
-  if (res.statusCode != 200) {
-    throw Exception('Erro ${res.statusCode}');
+    return data?['id']?.toString();
   }
 
-  final data = jsonDecode(res.body);
-  if (data is! Map || data['visitantes'] == null) return [];
+  static String _normalizeTipoEvento(String? tipoEvento) {
+    if (tipoEvento == null || tipoEvento.trim().isEmpty || tipoEvento == 'culto') {
+      return 'culto_domingo_noite';
+    }
+    return tipoEvento.trim();
+  }
 
-  final visitantes = data['visitantes'] as List;
-  return visitantes.map<Map<String, String>>((v) => {
-    'nome': v['nome'] ?? '',
-    'telefone': v['telefone'] ?? '',
-    'idade': v['idade'] ?? '',
-  }).toList();
-}
+  static String _nomeEvento(String tipoEvento) {
+    switch (tipoEvento) {
+      case 'culto_domingo_manha':
+        return 'Culto Domingo Manhã';
+      case 'culto_domingo_noite':
+        return 'Culto Domingo Noite';
+      case 'conectadao':
+        return 'Conectadão';
+      case 'atmosfera':
+        return 'Atmosfera';
+      case 'reuniao':
+        return 'Reunião';
+      default:
+        return tipoEvento;
+    }
+  }
 
-
+  static String? _emptyToNull(String? value) {
+    final trimmed = value?.trim() ?? '';
+    return trimmed.isEmpty ? null : trimmed;
+  }
 }

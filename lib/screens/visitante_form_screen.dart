@@ -30,6 +30,19 @@ class _VisitanteFormScreenState extends State<VisitanteFormScreen> {
     return null;
   }
 
+
+  String? _validaTelefone(String? v) {
+  if (v == null || v.trim().isEmpty) return null; // telefone não é obrigatório
+  final s = v.trim();
+  // Regex: começa com 55 e têm exatamente 13 dígitos
+  final regex = RegExp(r'^55[0-9]{11}$');
+  if (!regex.hasMatch(s)) {
+    return 'Use o formato: 5581XXXXXXXX';
+  }
+  return null;
+}
+
+
   String? _validaIdade(String? v) {
     final s = (v ?? '').trim();
     if (s.isEmpty) return null;
@@ -84,13 +97,14 @@ class _VisitanteFormScreenState extends State<VisitanteFormScreen> {
               ),
               const SizedBox(height: 12),
               TextFormField(
-                controller: _telCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Telefone',
-                  prefixIcon: Icon(Icons.phone),
-                ),
-                keyboardType: TextInputType.phone,
-                textInputAction: TextInputAction.next,
+                  controller: _telCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Telefone (formato: 5581XXXXXXXX)',
+                    prefixIcon: Icon(Icons.phone),
+                  ),
+                  keyboardType: TextInputType.number,
+                  textInputAction: TextInputAction.next,
+                  validator: _validaTelefone,
               ),
               const SizedBox(height: 12),
               TextFormField(

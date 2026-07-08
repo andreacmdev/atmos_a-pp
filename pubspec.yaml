@@ -1,4 +1,4 @@
-name: Gestao_Culto
+name: gestao_culto
 description: "A new Flutter project."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
@@ -34,8 +34,10 @@ dependencies:
   intl: ^0.18.1
   pdf: ^3.10.8
   printing: ^5.12.0
+  supabase_flutter: ^2.8.4
   flutter_localizations:
     sdk: flutter
+  url_launcher: ^6.2.4
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
@@ -82,6 +84,7 @@ flutter:
     - assets/atmosw.png
     - assets/Roboto-Regular.ttf
     - assets/Roboto-Bold.ttf
+    - assets/whatsapp.png
 
     
     # To add assets to your application, add an assets section, like this:
