@@ -9,6 +9,7 @@ import 'aniversariantes_screen.dart';
 import 'presenca_screen.dart';
 import 'relatorio_gerencial_screen.dart';
 import 'relatorio_individual_screen.dart';
+import 'relatorio_transicao_screen.dart';
 import 'visitante_form_screen.dart';
 import 'visitantes_relatorio_screen.dart';
 
@@ -50,7 +51,7 @@ class HomeScreen extends StatelessWidget {
                     te.label,
                     style: const TextStyle(fontWeight: FontWeight.w600),
                   ),
-                  subtitle: const Text('Marcar presença do evento'),
+                  subtitle: const Text('Marcar presenca do evento'),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () {
                     Navigator.pop(context);
@@ -96,7 +97,7 @@ class HomeScreen extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'ATMOS Gestão',
+                            'ATMOS Gestao',
                             style: TextStyle(
                               fontWeight: FontWeight.w800,
                               color: BrandColors.navy,
@@ -104,7 +105,7 @@ class HomeScreen extends StatelessWidget {
                           ),
                           SizedBox(height: 2),
                           Text(
-                            'Presença e cuidado',
+                            'Presenca e cuidado',
                             style: TextStyle(color: BrandColors.textMuted),
                           ),
                         ],
@@ -116,7 +117,7 @@ class HomeScreen extends StatelessWidget {
               const _MenuGroupTitle('Eventos'),
               ListTile(
                 leading: const Icon(Icons.checklist),
-                title: const Text('Marcar Presença'),
+                title: const Text('Marcar Presenca'),
                 onTap: () {
                   Navigator.pop(context);
                   _abrirSelecaoEvento(context);
@@ -152,10 +153,10 @@ class HomeScreen extends StatelessWidget {
                 },
               ),
               const Divider(),
-              const _MenuGroupTitle('Relatórios'),
+              const _MenuGroupTitle('Relatorios'),
               ListTile(
                 leading: const Icon(Icons.cake),
-                title: const Text('Aniversariantes do mês'),
+                title: const Text('Aniversariantes do mes'),
                 onTap: () {
                   Navigator.pop(context);
                   Navigator.push(
@@ -183,7 +184,7 @@ class HomeScreen extends StatelessWidget {
               const Divider(),
               ListTile(
                 leading: const Icon(Icons.manage_search),
-                title: const Text('Relatório Individual'),
+                title: const Text('Relatorio Individual'),
                 onTap: () {
                   Navigator.pop(context);
                   Navigator.push(
@@ -197,13 +198,27 @@ class HomeScreen extends StatelessWidget {
               const Divider(),
               ListTile(
                 leading: const Icon(Icons.analytics_outlined),
-                title: const Text('Relatório Gerencial'),
+                title: const Text('Relatorio Gerencial'),
                 onTap: () {
                   Navigator.pop(context);
                   Navigator.push(
                     context,
                     MaterialPageRoute(
                       builder: (_) => const RelatorioGerencialScreen(),
+                    ),
+                  );
+                },
+              ),
+              const Divider(),
+              ListTile(
+                leading: const Icon(Icons.move_up),
+                title: const Text('Relatorio de Transicao'),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const RelatorioTransicaoScreen(),
                     ),
                   );
                 },

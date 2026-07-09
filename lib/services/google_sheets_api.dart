@@ -359,15 +359,15 @@ class GoogleSheetsApi {
   static String _nomeEvento(String tipoEvento) {
     switch (tipoEvento) {
       case 'culto_domingo_manha':
-        return 'Culto Domingo Manhã';
+        return 'Culto Domingo Manha';
       case 'culto_domingo_noite':
         return 'Culto Domingo Noite';
       case 'conectadao':
-        return 'Conectadão';
+        return 'Conectadao';
       case 'atmosfera':
         return 'Atmosfera';
       case 'reuniao':
-        return 'Reunião';
+        return 'Reuniao';
       default:
         return tipoEvento;
     }
