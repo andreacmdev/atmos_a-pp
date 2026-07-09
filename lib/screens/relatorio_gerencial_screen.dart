@@ -41,32 +41,27 @@ class _RelatorioGerencialScreenState extends State<RelatorioGerencialScreen> {
       );
       if (mounted) setState(() => _relatorio = relatorio);
     } catch (e) {
-      if (mounted) setState(() => _erro = 'Erro ao gerar relatório: $e');
+      if (mounted) setState(() => _erro = 'Erro ao gerar relatorio: $e');
     } finally {
       if (mounted) setState(() => _carregando = false);
     }
   }
 
   Future<void> _selecionarMes() async {
-    final escolhido = await showDatePicker(
+    final escolhido = await showDialog<DateTime>(
       context: context,
-      initialDate: _mesSelecionado,
-      firstDate: DateTime(2020),
-      lastDate: DateTime.now(),
-      helpText: 'Selecione qualquer dia do mês',
-      cancelText: 'Cancelar',
-      confirmText: 'Selecionar',
+      builder: (_) => _MonthPickerDialog(mesInicial: _mesSelecionado),
     );
 
     if (escolhido == null) return;
-    setState(() => _mesSelecionado = DateTime(escolhido.year, escolhido.month));
+    setState(() => _mesSelecionado = escolhido);
     await _carregar();
   }
 
   Future<void> _abrirWhatsapp(String? telefone) async {
     final numero = _numeroWhatsapp(telefone);
     if (numero == null) {
-      _mostrarMensagem('Telefone não informado para este adolescente.');
+      _mostrarMensagem('Telefone nao informado para este adolescente.');
       return;
     }
 
@@ -74,7 +69,7 @@ class _RelatorioGerencialScreenState extends State<RelatorioGerencialScreen> {
     if (await canLaunchUrl(url)) {
       await launchUrl(url, mode: LaunchMode.externalApplication);
     } else {
-      _mostrarMensagem('Não foi possível abrir o WhatsApp.');
+      _mostrarMensagem('Nao foi possivel abrir o WhatsApp.');
     }
   }
 
@@ -97,7 +92,7 @@ class _RelatorioGerencialScreenState extends State<RelatorioGerencialScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Relatório Gerencial'),
+        title: const Text('Relatorio Gerencial'),
         actions: [
           IconButton(
             tooltip: 'Atualizar',
@@ -115,13 +110,13 @@ class _RelatorioGerencialScreenState extends State<RelatorioGerencialScreen> {
               icon: Icons.manage_accounts,
               title: 'Acompanhamento mensal',
               subtitle:
-                  'Adolescentes com mais de 50% de faltas nos encontros do mês.',
+                  'Adolescentes com mais de 50% de faltas nos encontros do mes.',
             ),
             const SizedBox(height: 12),
             OutlinedButton.icon(
               onPressed: _carregando ? null : _selecionarMes,
               icon: const Icon(Icons.calendar_month),
-              label: Text('Mês: ${_capitalizar(tituloMes)}'),
+              label: Text('Mes: ${_capitalizar(tituloMes)}'),
             ),
             const SizedBox(height: 12),
             if (_erro != null) _ErroBox(texto: _erro!),
@@ -138,17 +133,17 @@ class _RelatorioGerencialScreenState extends State<RelatorioGerencialScreen> {
                   icon: Icons.event_busy,
                   title: 'Nenhum encontro encontrado',
                   message:
-                      'Ainda não há eventos registrados para o mês selecionado.',
+                      'Ainda nao ha eventos registrados para o mes selecionado.',
                 )
               else if (relatorio.itens.isEmpty)
                 const AtmosEmptyState(
                   icon: Icons.check_circle_outline,
-                  title: 'Frequência dentro do esperado',
+                  title: 'Frequencia dentro do esperado',
                   message:
-                      'Nenhum adolescente faltou mais de 50% dos encontros desse mês.',
+                      'Nenhum adolescente faltou mais de 50% dos encontros desse mes.',
                 )
               else
-                _TabelaGerencial(
+                _ListaGerencial(
                   itens: relatorio.itens,
                   onWhatsapp: _abrirWhatsapp,
                 ),
@@ -156,6 +151,133 @@ class _RelatorioGerencialScreenState extends State<RelatorioGerencialScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  String _capitalizar(String value) {
+    if (value.isEmpty) return value;
+    return value[0].toUpperCase() + value.substring(1);
+  }
+}
+
+class _MonthPickerDialog extends StatefulWidget {
+  final DateTime mesInicial;
+
+  const _MonthPickerDialog({required this.mesInicial});
+
+  @override
+  State<_MonthPickerDialog> createState() => _MonthPickerDialogState();
+}
+
+class _MonthPickerDialogState extends State<_MonthPickerDialog> {
+  late int _ano;
+  late int _mes;
+
+  @override
+  void initState() {
+    super.initState();
+    _ano = widget.mesInicial.year;
+    _mes = widget.mesInicial.month;
+  }
+
+  bool _mesNoFuturo(int mes) {
+    final agora = DateTime.now();
+    return _ano > agora.year || (_ano == agora.year && mes > agora.month);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final meses = List.generate(
+      12,
+      (index) => DateFormat.MMM('pt_BR').format(DateTime(2024, index + 1)),
+    );
+
+    return AlertDialog(
+      title: const Text('Selecionar mes'),
+      contentPadding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
+      content: SizedBox(
+        width: 340,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                IconButton(
+                  tooltip: 'Ano anterior',
+                  icon: const Icon(Icons.chevron_left),
+                  onPressed: () => setState(() => _ano -= 1),
+                ),
+                SizedBox(
+                  width: 96,
+                  child: Center(
+                    child: Text(
+                      _ano.toString(),
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.w800,
+                            color: BrandColors.navy,
+                          ),
+                    ),
+                  ),
+                ),
+                IconButton(
+                  tooltip: 'Proximo ano',
+                  icon: const Icon(Icons.chevron_right),
+                  onPressed: _ano >= DateTime.now().year
+                      ? null
+                      : () => setState(() => _ano += 1),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: 12,
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 3,
+                childAspectRatio: 2.35,
+                crossAxisSpacing: 8,
+                mainAxisSpacing: 8,
+              ),
+              itemBuilder: (context, index) {
+                final mes = index + 1;
+                final selecionado = mes == _mes;
+                final desabilitado = _mesNoFuturo(mes);
+                return OutlinedButton(
+                  onPressed: desabilitado
+                      ? null
+                      : () {
+                          setState(() => _mes = mes);
+                          Navigator.of(context).pop(DateTime(_ano, _mes));
+                        },
+                  style: OutlinedButton.styleFrom(
+                    backgroundColor:
+                        selecionado ? BrandColors.magenta : Colors.transparent,
+                    foregroundColor:
+                        selecionado ? Colors.white : BrandColors.navy,
+                    side: BorderSide(
+                      color: selecionado
+                          ? BrandColors.magenta
+                          : BrandColors.divider,
+                    ),
+                  ),
+                  child: Text(
+                    _capitalizar(meses[index].replaceAll('.', '')),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancelar'),
+        ),
+      ],
     );
   }
 
@@ -221,66 +343,160 @@ class _ResumoItem extends StatelessWidget {
   }
 }
 
-class _TabelaGerencial extends StatelessWidget {
+class _ListaGerencial extends StatelessWidget {
   final List<RelatorioGerencialItem> itens;
   final ValueChanged<String?> onWhatsapp;
 
-  const _TabelaGerencial({
+  const _ListaGerencial({
     required this.itens,
     required this.onWhatsapp,
   });
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: DataTable(
-        headingRowColor: MaterialStateProperty.all(BrandColors.navy),
-        headingTextStyle: const TextStyle(
-          color: Colors.white,
-          fontWeight: FontWeight.w700,
-        ),
-        columns: const [
-          DataColumn(label: Text('Adolescente')),
-          DataColumn(label: Text('Telefone')),
-          DataColumn(label: Text('Faltas')),
-          DataColumn(label: Text('%')),
-          DataColumn(label: Text('WhatsApp')),
-        ],
-        rows: itens.map((item) {
-          final telefone = item.adolescente.telefone?.trim() ?? '';
-          final temTelefone = telefone.isNotEmpty;
-          return DataRow(
-            cells: [
-              DataCell(
-                ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 220),
+    return Column(
+      children: itens
+          .map(
+            (item) => Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: _GerencialCard(item: item, onWhatsapp: onWhatsapp),
+            ),
+          )
+          .toList(),
+    );
+  }
+}
+
+class _GerencialCard extends StatelessWidget {
+  final RelatorioGerencialItem item;
+  final ValueChanged<String?> onWhatsapp;
+
+  const _GerencialCard({
+    required this.item,
+    required this.onWhatsapp,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final telefone = item.adolescente.telefone?.trim() ?? '';
+    final temTelefone = telefone.isNotEmpty;
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
                   child: Text(
                     item.adolescente.nome,
-                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w800,
+                          color: BrandColors.navy,
+                        ),
                   ),
                 ),
-              ),
-              DataCell(Text(temTelefone ? telefone : '-')),
-              DataCell(Text('${item.faltas}/${item.totalEventos}')),
-              DataCell(Text(_percent(item.percentualFaltas))),
-              DataCell(
-                IconButton(
-                  tooltip:
-                      temTelefone ? 'Abrir WhatsApp' : 'Telefone não informado',
-                  icon: Image.asset(
-                    'assets/whatsapp.png',
-                    width: 22,
-                    height: 22,
-                  ),
-                  onPressed: temTelefone
-                      ? () => onWhatsapp(item.adolescente.telefone)
-                      : null,
+                const SizedBox(width: 8),
+                _PercentBadge(value: item.percentualFaltas),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                _InfoChip(
+                  icon: Icons.event_busy,
+                  label: '${item.faltas}/${item.totalEventos} faltas',
+                ),
+                _InfoChip(
+                  icon: Icons.phone,
+                  label: temTelefone ? telefone : 'Sem telefone',
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: temTelefone
+                    ? () => onWhatsapp(item.adolescente.telefone)
+                    : null,
+                icon: Image.asset(
+                  'assets/whatsapp.png',
+                  width: 20,
+                  height: 20,
+                ),
+                label: Text(
+                  temTelefone ? 'Chamar no WhatsApp' : 'Telefone nao informado',
                 ),
               ),
-            ],
-          );
-        }).toList(),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PercentBadge extends StatelessWidget {
+  final double value;
+
+  const _PercentBadge({required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: BrandColors.red.withOpacity(0.10),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        _percent(value),
+        style: const TextStyle(
+          color: BrandColors.red,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+    );
+  }
+}
+
+class _InfoChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+
+  const _InfoChip({
+    required this.icon,
+    required this.label,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: BrandColors.background,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 16, color: BrandColors.textMuted),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: const TextStyle(
+              color: BrandColors.textMuted,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
       ),
     );
   }
