@@ -1,6 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/adolescente.dart';
+import '../models/relatorio_gerencial.dart';
 import '../models/relatorio_individual.dart';
 
 class GoogleSheetsApi {
@@ -154,7 +155,8 @@ class GoogleSheetsApi {
       );
     }
 
-    final eventoIds = eventosData.map((evento) => evento['id'].toString()).toList();
+    final eventoIds =
+        eventosData.map((evento) => evento['id'].toString()).toList();
     final presencasData = await _client
         .from('presencas')
         .select('evento_id')
@@ -201,6 +203,79 @@ class GoogleSheetsApi {
       adolescente: adolescente,
       eventos: eventos,
       porTipo: porTipo,
+    );
+  }
+
+  static Future<RelatorioGerencial> fetchRelatorioGerencial({
+    required DateTime mes,
+  }) async {
+    final inicio = DateTime(mes.year, mes.month);
+    final ultimoDia = DateTime(mes.year, mes.month + 1, 0);
+    final hojeRaw = DateTime.now();
+    final hoje = DateTime(hojeRaw.year, hojeRaw.month, hojeRaw.day);
+    final fim = ultimoDia.isAfter(hoje) ? hoje : ultimoDia;
+
+    if (fim.isBefore(inicio)) {
+      return RelatorioGerencial(
+        mes: inicio,
+        totalEventos: 0,
+        itens: const [],
+      );
+    }
+
+    final adolescentes = await fetchAdolescentes();
+    final eventosData = await _client
+        .from('eventos')
+        .select('id')
+        .gte('data_evento', _dateOnly(inicio))
+        .lte('data_evento', _dateOnly(fim));
+
+    if (eventosData.isEmpty || adolescentes.isEmpty) {
+      return RelatorioGerencial(
+        mes: inicio,
+        totalEventos: eventosData.length,
+        itens: const [],
+      );
+    }
+
+    final eventoIds =
+        eventosData.map((evento) => evento['id'].toString()).toList();
+    final presencasData = await _client
+        .from('presencas')
+        .select('adolescente_id')
+        .eq('presente', true)
+        .inFilter('evento_id', eventoIds);
+
+    final presencasPorAdolescente = <String, int>{};
+    for (final row in presencasData) {
+      final adolescenteId = row['adolescente_id'].toString();
+      presencasPorAdolescente[adolescenteId] =
+          (presencasPorAdolescente[adolescenteId] ?? 0) + 1;
+    }
+
+    final totalEventos = eventosData.length;
+    final itens = adolescentes
+        .map((adolescente) {
+          return RelatorioGerencialItem(
+            adolescente: adolescente,
+            totalEventos: totalEventos,
+            presencas: presencasPorAdolescente[adolescente.id] ?? 0,
+          );
+        })
+        .where((item) => item.percentualFaltas > 0.5)
+        .toList()
+      ..sort((a, b) {
+        final byPercentual = b.percentualFaltas.compareTo(a.percentualFaltas);
+        if (byPercentual != 0) return byPercentual;
+        final byFaltas = b.faltas.compareTo(a.faltas);
+        if (byFaltas != 0) return byFaltas;
+        return a.adolescente.nome.compareTo(b.adolescente.nome);
+      });
+
+    return RelatorioGerencial(
+      mes: inicio,
+      totalEventos: totalEventos,
+      itens: itens,
     );
   }
 
@@ -273,7 +348,9 @@ class GoogleSheetsApi {
   }
 
   static String _normalizeTipoEvento(String? tipoEvento) {
-    if (tipoEvento == null || tipoEvento.trim().isEmpty || tipoEvento == 'culto') {
+    if (tipoEvento == null ||
+        tipoEvento.trim().isEmpty ||
+        tipoEvento == 'culto') {
       return 'culto_domingo_noite';
     }
     return tipoEvento.trim();
@@ -299,5 +376,9 @@ class GoogleSheetsApi {
   static String? _emptyToNull(String? value) {
     final trimmed = value?.trim() ?? '';
     return trimmed.isEmpty ? null : trimmed;
+  }
+
+  static String _dateOnly(DateTime date) {
+    return date.toIso8601String().split('T').first;
   }
 }

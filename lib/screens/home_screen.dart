@@ -7,6 +7,7 @@ import '../widgets/atmos_ui.dart';
 import 'adolescente_form_screen.dart';
 import 'aniversariantes_screen.dart';
 import 'presenca_screen.dart';
+import 'relatorio_gerencial_screen.dart';
 import 'relatorio_individual_screen.dart';
 import 'visitante_form_screen.dart';
 import 'visitantes_relatorio_screen.dart';
@@ -189,6 +190,20 @@ class HomeScreen extends StatelessWidget {
                     context,
                     MaterialPageRoute(
                       builder: (_) => const RelatorioIndividualScreen(),
+                    ),
+                  );
+                },
+              ),
+              const Divider(),
+              ListTile(
+                leading: const Icon(Icons.analytics_outlined),
+                title: const Text('Relatório Gerencial'),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const RelatorioGerencialScreen(),
                     ),
                   );
                 },
