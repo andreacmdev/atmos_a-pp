@@ -51,10 +51,12 @@ class _CartaoAniversarioScreenState extends State<CartaoAniversarioScreen> {
         children: [
           RepaintBoundary(
             key: _cardKey,
-            child: _BirthdayCard(
+            child: BirthdayCard(
               nome: widget.adolescente.nome,
               idade: _idade,
               data: data,
+              versiculo: 'O Senhor te abençoe e te guarde.',
+              referencia: 'Números 6:24',
             ),
           ),
           const SizedBox(height: 16),
@@ -118,13 +120,15 @@ class _CartaoAniversarioScreenState extends State<CartaoAniversarioScreen> {
 
   String _mensagemWhatsapp() {
     final idadeTexto = _idade == null ? '' : ' pelos seus $_idade anos';
+    const versiculo = 'O Senhor te abençoe e te guarde.';
+    const referencia = 'Números 6:24';
     return '''
 Feliz aniversário, ${widget.adolescente.nome}!$idadeTexto
 
-"O Senhor te abençoe e te guarde."
-Números 6:24
+"$versiculo"
+$referencia
 
-Que este novo ciclo seja cheio da presença de Deus, alegria, crescimento e propósito.
+Que este novo ciclo seja cheio da presença de Deus, alegria e propósito.
 
 Com carinho, ATMOS
 '''
@@ -148,30 +152,35 @@ Com carinho, ATMOS
   }
 }
 
-class _BirthdayCard extends StatelessWidget {
+class BirthdayCard extends StatelessWidget {
   final String nome;
   final int? idade;
   final String data;
+  final String versiculo;
+  final String referencia;
 
-  const _BirthdayCard({
+  const BirthdayCard({
+    super.key,
     required this.nome,
     required this.idade,
     required this.data,
+    required this.versiculo,
+    required this.referencia,
   });
 
   @override
   Widget build(BuildContext context) {
     return AspectRatio(
-      aspectRatio: 0.78,
+      aspectRatio: 1080 / 1350,
       child: Container(
-        padding: const EdgeInsets.all(22),
+        padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
           gradient: const LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
               BrandColors.navy,
-              Color(0xFF4A0B43),
+              Color(0xFF5B124F),
               BrandColors.magenta,
             ],
           ),
@@ -187,14 +196,40 @@ class _BirthdayCard extends StatelessWidget {
         child: Stack(
           children: [
             const Positioned(
-              right: -18,
-              top: -18,
-              child: _DecorativeCircle(size: 118, opacity: 0.14),
+              right: -38,
+              top: 6,
+              child: _DecorativeBlob(
+                size: 150,
+                color: BrandColors.red,
+                opacity: 0.14,
+              ),
             ),
             const Positioned(
-              left: -34,
-              bottom: 70,
-              child: _DecorativeCircle(size: 140, opacity: 0.10),
+              left: -54,
+              top: 72,
+              child: _DecorativeBlob(
+                size: 120,
+                color: BrandColors.yellow,
+                opacity: 0.10,
+              ),
+            ),
+            const Positioned(
+              right: 34,
+              bottom: 92,
+              child: _DecorativeBlob(
+                size: 96,
+                color: BrandColors.yellow,
+                opacity: 0.13,
+              ),
+            ),
+            const Positioned(
+              left: -20,
+              bottom: -22,
+              child: _DecorativeBlob(
+                size: 170,
+                color: BrandColors.red,
+                opacity: 0.10,
+              ),
             ),
             Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -206,6 +241,7 @@ class _BirthdayCard extends StatelessWidget {
                       width: 54,
                       height: 54,
                       fit: BoxFit.contain,
+                      filterQuality: FilterQuality.high,
                     ),
                     const Spacer(),
                     if (data.isNotEmpty)
@@ -217,6 +253,9 @@ class _BirthdayCard extends StatelessWidget {
                         decoration: BoxDecoration(
                           color: Colors.white.withOpacity(0.14),
                           borderRadius: BorderRadius.circular(99),
+                          border: Border.all(
+                            color: Colors.white.withOpacity(0.18),
+                          ),
                         ),
                         child: Text(
                           data,
@@ -228,71 +267,99 @@ class _BirthdayCard extends StatelessWidget {
                       ),
                   ],
                 ),
-                const Spacer(),
+                const Spacer(flex: 2),
                 const Text(
-                  'Feliz aniversário,',
+                  'Hoje é dia de celebrar!',
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    color: Colors.white70,
-                    fontSize: 22,
+                    color: Color(0xCCFFFFFF),
+                    fontSize: 18,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  nome,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 34,
-                    height: 1.05,
-                    fontWeight: FontWeight.w900,
+                const SizedBox(height: 10),
+                SizedBox(
+                  height: 118,
+                  child: Center(
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 620),
+                        child: Text(
+                          nome,
+                          textAlign: TextAlign.center,
+                          maxLines: 3,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 44,
+                            height: 1.04,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 0,
+                          ),
+                        ),
+                      ),
+                    ),
                   ),
                 ),
                 if (idade != null) ...[
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 8),
                   Text(
                     '$idade anos',
                     textAlign: TextAlign.center,
                     style: const TextStyle(
                       color: BrandColors.yellow,
-                      fontSize: 24,
-                      fontWeight: FontWeight.w800,
+                      fontSize: 31,
+                      fontWeight: FontWeight.w900,
                     ),
                   ),
                 ],
-                const SizedBox(height: 26),
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.12),
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: Colors.white24),
-                  ),
-                  child: const Column(
-                    children: [
-                      Text(
-                        '"O Senhor te abençoe e te guarde."',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 18,
-                          height: 1.28,
-                          fontWeight: FontWeight.w700,
+                const SizedBox(height: 28),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(18),
+                  child: BackdropFilter(
+                    filter: ui.ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 18,
+                        vertical: 18,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.10),
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(
+                          color: Colors.white.withOpacity(0.20),
                         ),
                       ),
-                      SizedBox(height: 6),
-                      Text(
-                        'Números 6:24',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(color: Colors.white70),
+                      child: Column(
+                        children: [
+                          Text(
+                            '"$versiculo"',
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 19,
+                              height: 1.25,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            referencia,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              color: Color(0xBFFFFFFF),
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
                 ),
-                const SizedBox(height: 22),
+                const SizedBox(height: 24),
                 const Text(
-                  'Que este novo ciclo seja cheio da presença de Deus, alegria, crescimento e propósito.',
+                  'Que este novo ciclo seja cheio da presença de Deus, alegria e propósito.',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: Colors.white,
@@ -300,7 +367,7 @@ class _BirthdayCard extends StatelessWidget {
                     height: 1.35,
                   ),
                 ),
-                const Spacer(),
+                const Spacer(flex: 2),
                 const Text(
                   'Com carinho, ATMOS',
                   textAlign: TextAlign.center,
@@ -319,13 +386,15 @@ class _BirthdayCard extends StatelessWidget {
   }
 }
 
-class _DecorativeCircle extends StatelessWidget {
+class _DecorativeBlob extends StatelessWidget {
   final double size;
   final double opacity;
+  final Color color;
 
-  const _DecorativeCircle({
+  const _DecorativeBlob({
     required this.size,
     required this.opacity,
+    required this.color,
   });
 
   @override
@@ -335,7 +404,7 @@ class _DecorativeCircle extends StatelessWidget {
       height: size,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: BrandColors.yellow.withOpacity(opacity),
+        color: color.withOpacity(opacity),
       ),
     );
   }
