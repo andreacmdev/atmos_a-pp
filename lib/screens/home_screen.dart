@@ -6,6 +6,7 @@ import '../theme/brand_colors.dart';
 import '../widgets/atmos_ui.dart';
 import 'adolescente_form_screen.dart';
 import 'aniversariantes_screen.dart';
+import 'conectados_screen.dart';
 import 'presenca_screen.dart';
 import 'relatorio_gerencial_screen.dart';
 import 'relatorio_individual_screen.dart';
@@ -121,6 +122,20 @@ class HomeScreen extends StatelessWidget {
                 onTap: () {
                   Navigator.pop(context);
                   _abrirSelecaoEvento(context);
+                },
+              ),
+              const Divider(),
+              ListTile(
+                leading: const Icon(Icons.groups_2_outlined),
+                title: const Text('Conectados'),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const ConectadosScreen(),
+                    ),
+                  );
                 },
               ),
               const Divider(),

@@ -1,6 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/adolescente.dart';
+import '../models/conectado.dart';
 import '../models/relatorio_gerencial.dart';
 import '../models/relatorio_individual.dart';
 
@@ -277,6 +278,212 @@ class GoogleSheetsApi {
       totalEventos: totalEventos,
       itens: itens,
     );
+  }
+
+  static Future<List<ConectadoGrupo>> fetchConectadosGrupos() async {
+    final gruposData = await _client
+        .from('conectados_grupos')
+        .select('id, nome, genero, responsavel, cor_nome, cor_hex, ativo')
+        .eq('ativo', true)
+        .order('genero')
+        .order('nome');
+
+    final membrosData = await _client
+        .from('conectados_membros')
+        .select('grupo_id')
+        .eq('ativo', true);
+
+    final totalPorGrupo = <String, int>{};
+    for (final row in membrosData) {
+      final grupoId = row['grupo_id'].toString();
+      totalPorGrupo[grupoId] = (totalPorGrupo[grupoId] ?? 0) + 1;
+    }
+
+    return gruposData
+        .map(
+          (json) => ConectadoGrupo.fromJson(
+            json,
+            totalMembros: totalPorGrupo[json['id'].toString()] ?? 0,
+          ),
+        )
+        .toList();
+  }
+
+  static Future<List<ConectadoMembro>> fetchConectadosMembros({
+    required String grupoId,
+  }) async {
+    final membrosData = await _client
+        .from('conectados_membros')
+        .select('id, grupo_id, adolescente_id, data_entrada')
+        .eq('grupo_id', int.parse(grupoId))
+        .eq('ativo', true);
+
+    if (membrosData.isEmpty) return const [];
+
+    final adolescenteIds =
+        membrosData.map((row) => row['adolescente_id'].toString()).toList();
+
+    final adolescentesData = await _client
+        .from('adolescentes')
+        .select('id, nome, data_nascimento, telefone, ativo')
+        .inFilter('id', adolescenteIds)
+        .eq('ativo', true);
+
+    final adolescentesPorId = {
+      for (final row in adolescentesData)
+        row['id'].toString(): Adolescente.fromJson(row),
+    };
+
+    final membros = <ConectadoMembro>[];
+    for (final row in membrosData) {
+      final adolescente = adolescentesPorId[row['adolescente_id'].toString()];
+      if (adolescente == null) continue;
+      membros.add(
+        ConectadoMembro(
+          id: row['id'].toString(),
+          grupoId: row['grupo_id'].toString(),
+          adolescente: adolescente,
+          dataEntrada: row['data_entrada'] == null
+              ? null
+              : DateTime.tryParse(row['data_entrada'].toString()),
+        ),
+      );
+    }
+
+    membros.sort((a, b) => a.adolescente.nome.compareTo(b.adolescente.nome));
+    return membros;
+  }
+
+  static Future<ConectadoEncontro> ensureConectadoEncontro({
+    required String grupoId,
+    required DateTime dataEncontro,
+    String? observacao,
+  }) async {
+    final data = _dateOnly(dataEncontro);
+    final existente = await _client
+        .from('conectados_encontros')
+        .select('id, grupo_id, data_encontro, observacao')
+        .eq('grupo_id', int.parse(grupoId))
+        .eq('data_encontro', data)
+        .maybeSingle();
+
+    if (existente != null) return ConectadoEncontro.fromJson(existente);
+
+    try {
+      final inserted = await _client
+          .from('conectados_encontros')
+          .insert({
+            'grupo_id': int.parse(grupoId),
+            'data_encontro': data,
+            'observacao': _emptyToNull(observacao),
+            'created_by': _client.auth.currentUser?.id,
+          })
+          .select('id, grupo_id, data_encontro, observacao')
+          .single();
+
+      return ConectadoEncontro.fromJson(inserted);
+    } on PostgrestException {
+      final createdByAnotherUser = await _client
+          .from('conectados_encontros')
+          .select('id, grupo_id, data_encontro, observacao')
+          .eq('grupo_id', int.parse(grupoId))
+          .eq('data_encontro', data)
+          .single();
+      return ConectadoEncontro.fromJson(createdByAnotherUser);
+    }
+  }
+
+  static Future<Set<String>> fetchConectadoPresencas({
+    required String encontroId,
+  }) async {
+    final data = await _client
+        .from('conectados_presencas')
+        .select('adolescente_id')
+        .eq('encontro_id', int.parse(encontroId))
+        .eq('presente', true);
+
+    return data.map((row) => row['adolescente_id'].toString()).toSet();
+  }
+
+  static Future<void> registrarConectadoPresenca({
+    required String encontroId,
+    required String adolescenteId,
+  }) async {
+    await _client.from('conectados_presencas').upsert(
+      {
+        'encontro_id': int.parse(encontroId),
+        'adolescente_id': int.parse(adolescenteId),
+        'presente': true,
+        'registrado_por_user': _client.auth.currentUser?.id,
+        'updated_at': DateTime.now().toIso8601String(),
+      },
+      onConflict: 'encontro_id,adolescente_id',
+    );
+  }
+
+  static Future<void> removerConectadoPresenca({
+    required String encontroId,
+    required String adolescenteId,
+  }) async {
+    await _client
+        .from('conectados_presencas')
+        .update({
+          'presente': false,
+          'registrado_por_user': _client.auth.currentUser?.id,
+          'updated_at': DateTime.now().toIso8601String(),
+        })
+        .eq('encontro_id', int.parse(encontroId))
+        .eq('adolescente_id', int.parse(adolescenteId));
+  }
+
+  static Future<void> adicionarAdolescenteAoConectado({
+    required String grupoId,
+    required String adolescenteId,
+  }) async {
+    await transferirAdolescenteConectado(
+      adolescenteId: adolescenteId,
+      grupoDestinoId: grupoId,
+    );
+  }
+
+  static Future<void> transferirAdolescenteConectado({
+    required String adolescenteId,
+    required String grupoDestinoId,
+  }) async {
+    final hoje = _dateOnly(DateTime.now());
+    final atuais = await _client
+        .from('conectados_membros')
+        .select('id, grupo_id')
+        .eq('adolescente_id', int.parse(adolescenteId))
+        .eq('ativo', true);
+
+    final origemId = atuais.isEmpty ? null : atuais.first['grupo_id'];
+    final jaEstaNoDestino = atuais.any(
+      (row) => row['grupo_id'].toString() == grupoDestinoId,
+    );
+    if (jaEstaNoDestino) return;
+
+    await _client
+        .from('conectados_membros')
+        .update({'ativo': false, 'data_saida': hoje})
+        .eq('adolescente_id', int.parse(adolescenteId))
+        .eq('ativo', true);
+
+    await _client.from('conectados_membros').insert({
+      'grupo_id': int.parse(grupoDestinoId),
+      'adolescente_id': int.parse(adolescenteId),
+      'data_entrada': hoje,
+      'created_by': _client.auth.currentUser?.id,
+      'ativo': true,
+    });
+
+    await _client.from('conectados_transferencias').insert({
+      'adolescente_id': int.parse(adolescenteId),
+      'grupo_origem_id': origemId,
+      'grupo_destino_id': int.parse(grupoDestinoId),
+      'data_transferencia': hoje,
+      'created_by': _client.auth.currentUser?.id,
+    });
   }
 
   static Future<List<Map<String, String>>> _getVisitantesPorPeriodo({
