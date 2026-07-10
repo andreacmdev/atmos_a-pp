@@ -157,6 +157,7 @@ class _ConectadoDetalheScreenState extends State<ConectadoDetalheScreen> {
   ConectadoEncontro? _encontro;
   List<ConectadoMembro> _membros = const [];
   Set<String> _presentes = {};
+  bool _alteracoesPendentes = false;
 
   @override
   void initState() {
@@ -173,22 +174,30 @@ class _ConectadoDetalheScreenState extends State<ConectadoDetalheScreen> {
     });
 
     try {
-      final encontro = await GoogleSheetsApi.ensureConectadoEncontro(
+      final encontro = await GoogleSheetsApi.fetchConectadoEncontro(
         grupoId: widget.grupo.id,
         dataEncontro: _dataEncontro,
       );
       final membros = await GoogleSheetsApi.fetchConectadosMembros(
         grupoId: widget.grupo.id,
       );
-      final presentes = await GoogleSheetsApi.fetchConectadoPresencas(
-        encontroId: encontro.id,
+      membros.sort(
+        (a, b) => _normalizar(a.adolescente.nome).compareTo(
+          _normalizar(b.adolescente.nome),
+        ),
       );
+      final presentes = encontro == null
+          ? <String>{}
+          : await GoogleSheetsApi.fetchConectadoPresencas(
+              encontroId: encontro.id,
+            );
 
       if (mounted) {
         setState(() {
-          _encontro = encontro;
+          _encontro = presentes.isEmpty ? null : encontro;
           _membros = membros;
           _presentes = presentes;
+          _alteracoesPendentes = false;
         });
       }
     } catch (e) {
@@ -219,29 +228,61 @@ class _ConectadoDetalheScreenState extends State<ConectadoDetalheScreen> {
   }
 
   Future<void> _alternarPresenca(ConectadoMembro membro) async {
-    final encontro = _encontro;
-    if (encontro == null || _salvando) return;
+    if (_salvando) return;
 
     final adolescenteId = membro.adolescente.id;
     final jaPresente = _presentes.contains(adolescenteId);
-    setState(() => _salvando = true);
-
-    try {
+    setState(() {
       if (jaPresente) {
-        await GoogleSheetsApi.removerConectadoPresenca(
-          encontroId: encontro.id,
-          adolescenteId: adolescenteId,
-        );
-        setState(() => _presentes.remove(adolescenteId));
+        _presentes.remove(adolescenteId);
       } else {
-        await GoogleSheetsApi.registrarConectadoPresenca(
-          encontroId: encontro.id,
-          adolescenteId: adolescenteId,
-        );
-        setState(() => _presentes.add(adolescenteId));
+        _presentes.add(adolescenteId);
       }
+      _alteracoesPendentes = true;
+    });
+  }
+
+  Future<void> _confirmarEncontro() async {
+    if (_salvando || _membros.isEmpty) return;
+
+    final confirmar = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Confirmar encontro?'),
+        content: Text(
+          'O encontro de ${DateFormat('dd/MM/yyyy').format(_dataEncontro)} sera salvo com ${_presentes.length} presente(s) e ${_membros.length - _presentes.length} falta(s).',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Confirmar'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmar != true) return;
+
+    setState(() => _salvando = true);
+    try {
+      final encontro = await GoogleSheetsApi.confirmarConectadoEncontro(
+        grupoId: widget.grupo.id,
+        dataEncontro: _dataEncontro,
+        adolescenteIds: _membros.map((m) => m.adolescente.id).toList(),
+        presentesIds: _presentes,
+      );
+      if (!mounted) return;
+      setState(() {
+        _encontro = encontro;
+        _alteracoesPendentes = false;
+      });
+      _mostrarMensagem('Encontro confirmado com sucesso.');
     } catch (e) {
-      _mostrarMensagem('Erro ao atualizar presenca: $e');
+      _mostrarMensagem('Erro ao confirmar encontro: $e');
     } finally {
       if (mounted) setState(() => _salvando = false);
     }
@@ -627,6 +668,30 @@ class _ConectadoDetalheScreenState extends State<ConectadoDetalheScreen> {
               ),
             ),
             const SizedBox(height: 12),
+            if (!_carregando && _membros.isNotEmpty) ...[
+              _ConfirmacaoEncontroBox(
+                confirmado: _encontro != null && !_alteracoesPendentes,
+                pendente: _alteracoesPendentes || _encontro == null,
+              ),
+              const SizedBox(height: 10),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: _salvando ? null : _confirmarEncontro,
+                  icon: _salvando
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.done_all),
+                  label: Text(
+                    _salvando ? 'Confirmando...' : 'Confirmar Encontro',
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+            ],
             if (_erro != null) _ErroBox(texto: _erro!),
             if (_carregando)
               const Padding(
@@ -722,6 +787,48 @@ class _ConectadoDetalheScreenState extends State<ConectadoDetalheScreen> {
               ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _ConfirmacaoEncontroBox extends StatelessWidget {
+  final bool confirmado;
+  final bool pendente;
+
+  const _ConfirmacaoEncontroBox({
+    required this.confirmado,
+    required this.pendente,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final color = confirmado ? BrandColors.success : BrandColors.navy;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: confirmado
+            ? BrandColors.successSoft
+            : BrandColors.yellow.withOpacity(0.16),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            confirmado ? Icons.verified_outlined : Icons.edit_calendar_outlined,
+            color: color,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              confirmado
+                  ? 'Encontro confirmado. Se precisar ajustar, marque novamente e confirme.'
+                  : 'Rascunho: marque as presencas e toque em Confirmar Encontro para salvar.',
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
       ),
     );
   }

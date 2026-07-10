@@ -43,6 +43,9 @@ class _RelatorioIndividualScreenState extends State<RelatorioIndividualScreen> {
 
     try {
       final dados = await GoogleSheetsApi.fetchAdolescentes();
+      dados.sort(
+        (a, b) => _normalize(a.nome).compareTo(_normalize(b.nome)),
+      );
       setState(() => _adolescentes = dados);
     } catch (e) {
       setState(() => _erro = 'Erro ao carregar adolescentes: $e');
@@ -75,8 +78,10 @@ class _RelatorioIndividualScreenState extends State<RelatorioIndividualScreen> {
 
   List<Adolescente> get _filtrados {
     final q = _normalize(_buscaCtrl.text.trim());
-    if (q.isEmpty) return _adolescentes.take(12).toList();
-    return _adolescentes
+    final ordenados = [..._adolescentes]
+      ..sort((a, b) => _normalize(a.nome).compareTo(_normalize(b.nome)));
+    if (q.isEmpty) return ordenados.take(12).toList();
+    return ordenados
         .where((a) => _normalize(a.nome).contains(q))
         .take(20)
         .toList();

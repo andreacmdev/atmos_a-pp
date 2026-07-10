@@ -1,136 +1,188 @@
-# 📱 ATMOS App — Gestão de Presença de Adolescentes
+# ATMOS App
 
-## 📖 Visão Geral
-O **ATMOS App** foi desenvolvido para o Departamento de Adolescentes da Igreja Verbo da Vida com o objetivo de registrar e gerenciar a presença de adolescentes nos eventos **Culto**, **Conectadão** e **Atmosfera**.
+Aplicativo de gestao do departamento de adolescentes ATMOS.
 
-Ele funciona de forma **offline para interface** e **online para registro**, integrando-se a uma **planilha Google Sheets** via **Google Apps Script**.
+O app centraliza presencas, cadastro de adolescentes, visitantes, aniversariantes,
+relatorios e acompanhamento dos grupos Conectados. Ele foi pensado para uso
+mobile-first pela equipe de lideranca.
 
----
+## Visao Geral
 
-## 🎯 Objetivos do Projeto
-- Substituir o registro manual em papel por uma solução digital.
-- Facilitar o trabalho da equipe de gestão, que poderá registrar presenças diretamente no celular.
-- Criar relatórios de presença de forma mais rápida e acessível.
-- Adicionar funcionalidades para controle de visitantes.
+O projeto nasceu como um controle de presenca baseado em Google Sheets e Apps
+Script. Durante a transicao, o app foi rotacionado para uma estrutura mais
+autonoma com Supabase como backend/banco de dados e Firebase Hosting para
+publicacao web.
 
----
+O objetivo principal e apoiar a gestao de pessoas: saber quem esta presente,
+quem esta faltando, quem esta em transicao, quem chegou como visitante e como
+cada adolescente esta caminhando nos eventos e nos Conectados.
 
-## 🛠️ Tecnologias Utilizadas
-- **Flutter** (Dart)
-- **Google Sheets API** via Google Apps Script
-- **HTTP package** (requisições)
-- **Intl package** (formatação de datas)
-- **VS Code** (desenvolvimento)
-- **GitHub** (controle de versão)
+## Funcionalidades Principais
 
----
+- Login por email e senha.
+- Marcacao de presenca por evento.
+- Cadastro de adolescentes pelo app.
+- Verificacao inteligente de nomes semelhantes antes de cadastrar.
+- Cadastro de visitantes.
+- Relatorio de visitantes da semana.
+- Aniversariantes do mes.
+- Cartao de aniversario personalizado com versiculo.
+- Relatorio individual por adolescente.
+- Relatorio gerencial mensal.
+- Relatorio de transicao para adolescentes com 17 anos ou mais.
+- Confirmacao de transicao com dupla confirmacao.
+- Modulo Conectados.
+- Registro de encontros dos Conectados com confirmacao final.
+- Transferencia de adolescentes entre Conectados sem perder historico.
+- Remocao de adolescente do Conectado sem apagar o cadastro.
+- Relatorio Conectados com panorama geral e detalhe por grupo.
+- Exportacao de PDFs em fluxos de relatorio.
 
-## 📂 Estrutura do Projeto
+## Eventos Suportados
 
+- Culto Domingo Manha
+- Culto Domingo Noite
+- Conectadao
+- Atmosfera
+- Reuniao
+
+## Modulo Conectados
+
+O modulo Conectados gerencia os grupos de discipulado dos adolescentes.
+
+Cada grupo possui:
+
+- nome
+- genero
+- lider/responsavel
+- cor de identidade
+- membros ativos
+- encontros
+- presencas por encontro
+
+O registro de encontro funciona em modo rascunho: o lider marca os adolescentes
+presentes e somente ao tocar em `Confirmar Encontro` o app cria/atualiza o
+encontro e grava presencas/faltas. Isso evita encontros acidentais criados
+apenas por abrir uma data errada.
+
+## Relatorios
+
+### Relatorio Individual
+
+Mostra o historico completo de um adolescente:
+
+- dados pessoais
+- total de presencas
+- total de faltas
+- frequencia geral
+- eventos que mais participa
+- historico por evento
+- dados do Conectado atual
+- presencas/faltas nos encontros dos Conectados
+
+### Relatorio Gerencial
+
+Mostra um panorama mensal dos adolescentes nos eventos gerais, incluindo
+frequencia, faltas e itens de acompanhamento.
+
+### Relatorio Conectados
+
+Mostra o panorama mensal dos Conectados:
+
+- grupos
+- encontros
+- presencas
+- faltas
+- percentual geral
+
+Ao tocar em um grupo, abre o detalhe daquele Conectado com encontros do mes e
+frequencia individual dos membros.
+
+### Relatorio de Transicao
+
+Lista adolescentes ativos com 17 anos ou mais. A equipe pode confirmar a
+transicao quando o adolescente sair do departamento.
+
+Ao confirmar a transicao:
+
+- o adolescente fica `ativo = false`
+- ele deixa de aparecer nas listas e relatorios ativos
+- o historico e o ID permanecem preservados
+- vinculo ativo em Conectados e encerrado
+
+## Backend
+
+O app usa Supabase como backend principal.
+
+Principais tabelas usadas:
+
+- `adolescentes`
+- `eventos`
+- `presencas`
+- `visitantes`
+- `conectados_grupos`
+- `conectados_membros`
+- `conectados_encontros`
+- `conectados_presencas`
+- `conectados_transferencias`
+
+## Scripts SQL de Apoio
+
+Arquivos relevantes no projeto:
+
+- `supabase_conectados.sql`: cria estrutura do modulo Conectados.
+- `supabase_conectados_import_via_csv.sql`: apoio para importar membros dos Conectados via CSV.
+- `supabase_reset_dados_eventos.sql`: zera historico de eventos/presencas preservando adolescentes e grupos.
+- `supabase_limpar_adolescentes_duplicados_v3.sql`: limpa cadastros duplicados de adolescentes.
+
+## Desenvolvimento Local
+
+Instale as dependencias Flutter e rode:
+
+```powershell
+flutter pub get
 ```
-lib/
-├── models/
-│   ├── adolescente.dart       # Modelo de dados dos adolescentes
-│   └── tipo_evento.dart       # Enum dos eventos
-├── screens/
-│   ├── home_screen.dart       # Tela inicial com menu lateral
-│   ├── presenca_screen.dart   # Tela de marcação de presença
-│   └── visitante_screen.dart  # Tela de registro de visitantes
-├── services/
-│   └── google_sheets_api.dart # Comunicação com o backend (Apps Script)
-assets/
-└── icon/
-    └── atmos.png              # Ícone oficial do app
+
+Build web:
+
+```powershell
+flutter build web --web-renderer canvaskit
 ```
 
----
+Servidor local do build:
 
-## 🚀 Etapas de Desenvolvimento
-
-### **1. Definição da Estrutura**
-Criamos um documento inicial definindo:
-- Páginas necessárias
-- Modelos de dados
-- Serviços para comunicação com o backend
-- Layout e cores baseados na identidade visual ATMOS
-
----
-
-### **2. Modelagem**
-**Arquivo:** `adolescente.dart`
-- Representa o adolescente com: `id`, `nome`, `dataNascimento`, `telefone`.
-- Inclui `fromMap` e `toMap` para conversão entre JSON e objetos Dart.
-
----
-
-### **3. Backend no Google Sheets**
-**Google Apps Script** com as funções:
-- `getAdolescentes()` → Lista de adolescentes
-- `registrarPresenca()` → Registra presença
-- `getPresencas()` → Retorna IDs já registrados no dia/evento
-- `registrarVisitante()` → Registra visitantes em aba separada
-
----
-
-### **4. Integração Flutter ↔ Sheets**
-**Arquivo:** `google_sheets_api.dart`
-- Funções para buscar e enviar dados via HTTP.
-- Uso do `http.get` e `http.post` para comunicar com o Apps Script.
-
----
-
-### **5. Interface**
-- **HomeScreen**: Logo + Botão para “Marcar Presença” + “Adicionar Visitante” no menu lateral.
-- **PresencaScreen**: Lista de adolescentes com pré-seleção se já registrado.
-- **VisitanteScreen**: Formulário com Nome, Telefone e Idade.
-
----
-
-### **6. Melhorias**
-- Tema global com paleta ATMOS.
-- Botões personalizados.
-- Gradiente no fundo da tela inicial.
-- Barra de pesquisa na lista de adolescentes.
-- Feedback visual após registro.
-- Pré-carregamento de presenças para evitar duplicidade no mesmo dia/evento.
-
----
-
-## 📦 Geração do APK
-
-### **Comando**
-```bash
-flutter build apk --release
+```powershell
+.\scripts\serve_build.cmd
 ```
 
-### **Local do arquivo**
+URL local:
+
+```text
+http://127.0.0.1:55222/
 ```
-build/app/outputs/flutter-apk/app-release.apk
+
+## Deploy
+
+O app e publicado no Firebase Hosting.
+
+Build:
+
+```powershell
+flutter build web --web-renderer canvaskit
 ```
 
----
+Deploy oficial:
 
-## 📡 Fluxo de Integração Google Sheets
+```powershell
+firebase deploy --only hosting
+```
 
-1. **Planilha** com abas:
-   - `adolescentes` → Lista fixa de membros
-   - `presencas` → Registros de presença
-   - `visitantes` → Registros de visitantes
+URL de producao:
 
-2. **Apps Script**:
-   - Publicado como Web App (`Deploy > New Deployment`).
-   - Permissão para "Qualquer pessoa com o link".
+```text
+https://gestaoatmos.web.app
+```
 
-3. **Flutter App**:
-   - Consome os endpoints via HTTP.
-   - Atualiza a interface imediatamente após registros.
+## Uso Interno
 
----
-
-## 📜 Licença
-Uso interno do Departamento de Adolescentes da Igreja Verbo da Vida — Zona Norte.  
-Não possui licença pública.
-
----
-
-**Feito com ❤️ por André Cândido Machado**
+Projeto de uso interno do departamento de adolescentes ATMOS.

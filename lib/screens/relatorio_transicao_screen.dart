@@ -84,6 +84,64 @@ class _RelatorioTransicaoScreenState extends State<RelatorioTransicaoScreen> {
     }
   }
 
+  Future<void> _confirmarTransicao(_TransicaoItem item) async {
+    final adolescente = item.adolescente;
+    final primeiraConfirmacao = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Confirmar transicao?'),
+        content: Text(
+          '${adolescente.nome} sera retirado das listas ativas do app. O cadastro e o historico dele continuam salvos.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Continuar'),
+          ),
+        ],
+      ),
+    );
+
+    if (primeiraConfirmacao != true || !mounted) return;
+
+    final segundaConfirmacao = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Confirmacao final'),
+        content: Text(
+          'Tem certeza que ${adolescente.nome} ja saiu do departamento ATMOS?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Nao'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: BrandColors.red),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Sim, confirmar'),
+          ),
+        ],
+      ),
+    );
+
+    if (segundaConfirmacao != true) return;
+
+    try {
+      await GoogleSheetsApi.confirmarTransicaoAdolescente(
+        adolescenteId: adolescente.id,
+      );
+      _mostrarMensagem('${adolescente.nome} removido das listas ativas.');
+      await _carregar();
+    } catch (e) {
+      _mostrarMensagem('Erro ao confirmar transicao: $e');
+    }
+  }
+
   void _mostrarMensagem(String texto) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(texto)));
   }
@@ -160,6 +218,7 @@ class _RelatorioTransicaoScreenState extends State<RelatorioTransicaoScreen> {
                     child: _TransicaoCard(
                       item: item,
                       onWhatsapp: _abrirWhatsapp,
+                      onConfirmarTransicao: _confirmarTransicao,
                     ),
                   ),
                 ),
@@ -245,10 +304,12 @@ class _ResumoItem extends StatelessWidget {
 class _TransicaoCard extends StatelessWidget {
   final _TransicaoItem item;
   final ValueChanged<String?> onWhatsapp;
+  final ValueChanged<_TransicaoItem> onConfirmarTransicao;
 
   const _TransicaoCard({
     required this.item,
     required this.onWhatsapp,
+    required this.onConfirmarTransicao,
   });
 
   @override
@@ -326,6 +387,19 @@ class _TransicaoCard extends StatelessWidget {
                 label: Text(
                   temTelefone ? 'Chamar no WhatsApp' : 'Telefone nao informado',
                 ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: BrandColors.red,
+                  side: const BorderSide(color: BrandColors.red),
+                ),
+                onPressed: () => onConfirmarTransicao(item),
+                icon: const Icon(Icons.check_circle_outline),
+                label: const Text('Confirmar transicao'),
               ),
             ),
           ],

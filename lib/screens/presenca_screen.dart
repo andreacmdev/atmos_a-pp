@@ -60,7 +60,8 @@ class _PresencaScreenState extends State<PresencaScreen> {
       );
 
       setState(() {
-        lista = dados;
+        lista = dados
+          ..sort((a, b) => _normalize(a.nome).compareTo(_normalize(b.nome)));
         registrados.addAll(idsPresentes);
         carregandoLista = false;
       });
@@ -461,7 +462,8 @@ class _PresencaScreenState extends State<PresencaScreen> {
       );
     }
 
-    final visiveis = lista.where((a) => _matchesQuery(a.nome)).toList();
+    final visiveis = lista.where((a) => _matchesQuery(a.nome)).toList()
+      ..sort((a, b) => _normalize(a.nome).compareTo(_normalize(b.nome)));
 
     return Scaffold(
       appBar: AppBar(
@@ -474,10 +476,11 @@ class _PresencaScreenState extends State<PresencaScreen> {
                   hintText: 'Buscar adolescente...',
                   border: InputBorder.none,
                   hintStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Colors.white70,
+                        color: BrandColors.textMuted,
                       ),
                 ),
-                style: const TextStyle(color: Colors.white),
+                cursorColor: BrandColors.magenta,
+                style: const TextStyle(color: BrandColors.navy),
               )
             : Text('Marcar Presença — ${widget.tipoEvento.label}'),
         actions: [

@@ -355,7 +355,10 @@ class _RelatorioConectadosScreenState
                 ...relatorio.grupos.map(
                   (grupo) => Padding(
                     padding: const EdgeInsets.only(bottom: 10),
-                    child: _GrupoRelatorioCard(grupo: grupo),
+                    child: _GrupoRelatorioCard(
+                      grupo: grupo,
+                      mes: _mesSelecionado,
+                    ),
                   ),
                 ),
             ],
@@ -443,71 +446,385 @@ class _ResumoItem extends StatelessWidget {
 
 class _GrupoRelatorioCard extends StatelessWidget {
   final RelatorioConectadoGrupo grupo;
+  final DateTime mes;
 
-  const _GrupoRelatorioCard({required this.grupo});
+  const _GrupoRelatorioCard({
+    required this.grupo,
+    required this.mes,
+  });
 
   @override
   Widget build(BuildContext context) {
     final color = _grupoColor(grupo.grupo);
     return Card(
+      child: InkWell(
+        borderRadius: BorderRadius.circular(8),
+        onTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => _RelatorioConectadoDetalheScreen(
+                grupo: grupo,
+                mes: mes,
+              ),
+            ),
+          );
+        },
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 42,
+                    height: 42,
+                    decoration: BoxDecoration(
+                      color: color.withOpacity(0.14),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(Icons.diversity_3_outlined, color: color),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          grupo.grupo.nome,
+                          style: const TextStyle(
+                            color: BrandColors.navy,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          _emptyDash(grupo.grupo.responsavel),
+                          style: const TextStyle(color: BrandColors.textMuted),
+                        ),
+                      ],
+                    ),
+                  ),
+                  _PercentBadge(value: grupo.percentual),
+                  const SizedBox(width: 4),
+                  const Icon(Icons.chevron_right, color: BrandColors.textMuted),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  _InfoChip(
+                    icon: Icons.event_available,
+                    label: '${grupo.encontros.length} encontros',
+                  ),
+                  _InfoChip(
+                    icon: Icons.people_outline,
+                    label: '${grupo.membros.length} membros',
+                  ),
+                  _InfoChip(
+                    icon: Icons.check_circle_outline,
+                    label:
+                        '${grupo.presencas}/${grupo.totalPossivel} presencas',
+                  ),
+                  const _InfoChip(
+                    icon: Icons.touch_app_outlined,
+                    label: 'ver detalhes',
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RelatorioConectadoDetalheScreen extends StatelessWidget {
+  final RelatorioConectadoGrupo grupo;
+  final DateTime mes;
+
+  const _RelatorioConectadoDetalheScreen({
+    required this.grupo,
+    required this.mes,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final color = _grupoColor(grupo.grupo);
+    final mesTexto = _capitalizar(DateFormat('MMMM/yyyy', 'pt_BR').format(mes));
+    final membrosOrdenados = [...grupo.membros]
+      ..sort((a, b) {
+        final byFrequencia =
+            _membroPercentual(a, grupo.encontros).compareTo(
+          _membroPercentual(b, grupo.encontros),
+        );
+        if (byFrequencia != 0) return byFrequencia;
+        return a.adolescente.nome.compareTo(b.adolescente.nome);
+      });
+
+    return Scaffold(
+      appBar: AppBar(title: Text(grupo.grupo.nome)),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+        children: [
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: color,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  grupo.grupo.nome,
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w900,
+                      ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Lider: ${_emptyDash(grupo.grupo.responsavel)}',
+                  style: const TextStyle(color: Colors.white70),
+                ),
+                Text(
+                  'Mes: $mesTexto',
+                  style: const TextStyle(color: Colors.white70),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          _ResumoDetalhado(grupo: grupo),
+          const SizedBox(height: 16),
+          Text(
+            'Encontros do mes',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+          const SizedBox(height: 8),
+          if (grupo.encontros.isEmpty)
+            const AtmosEmptyState(
+              icon: Icons.event_busy,
+              title: 'Sem encontros no mes',
+              message: 'Quando houver encontros registrados, eles aparecem aqui.',
+            )
+          else
+            ...grupo.encontros.map((encontro) {
+              final presentes = grupo.membros
+                  .where((m) => m.presencasPorEncontro[encontro.id] == true)
+                  .length;
+              return _EncontroDetalheTile(
+                encontro: encontro,
+                presentes: presentes,
+                total: grupo.membros.length,
+              );
+            }),
+          const SizedBox(height: 16),
+          Text(
+            'Adolescentes',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+          const SizedBox(height: 8),
+          if (membrosOrdenados.isEmpty)
+            const AtmosEmptyState(
+              icon: Icons.people_outline,
+              title: 'Sem membros ativos',
+              message: 'Nenhum adolescente ativo neste conectado.',
+            )
+          else
+            ...membrosOrdenados.map(
+              (membro) => _MembroDetalheCard(
+                membro: membro,
+                encontros: grupo.encontros,
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ResumoDetalhado extends StatelessWidget {
+  final RelatorioConectadoGrupo grupo;
+
+  const _ResumoDetalhado({required this.grupo});
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
       child: Padding(
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.all(12),
+        child: Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            _ResumoMiniCard(label: 'Membros', value: '${grupo.membros.length}'),
+            _ResumoMiniCard(
+              label: 'Encontros',
+              value: '${grupo.encontros.length}',
+            ),
+            _ResumoMiniCard(
+              label: 'Presencas',
+              value: '${grupo.presencas}',
+            ),
+            _ResumoMiniCard(label: 'Faltas', value: '${grupo.faltas}'),
+            _ResumoMiniCard(label: 'Frequencia', value: _percent(grupo.percentual)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ResumoMiniCard extends StatelessWidget {
+  final String label;
+  final String value;
+
+  const _ResumoMiniCard({
+    required this.label,
+    required this.value,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 96,
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: BrandColors.background,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            value,
+            style: const TextStyle(
+              color: BrandColors.navy,
+              fontWeight: FontWeight.w900,
+              fontSize: 18,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            style: const TextStyle(color: BrandColors.textMuted, fontSize: 12),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EncontroDetalheTile extends StatelessWidget {
+  final ConectadoEncontro encontro;
+  final int presentes;
+  final int total;
+
+  const _EncontroDetalheTile({
+    required this.encontro,
+    required this.presentes,
+    required this.total,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final percentual = total == 0 ? 0.0 : presentes / total;
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      child: ListTile(
+        leading: const Icon(Icons.event_available, color: BrandColors.magenta),
+        title: Text(DateFormat('dd/MM/yyyy').format(encontro.dataEncontro)),
+        subtitle: Text('$presentes de $total presentes'),
+        trailing: _PercentBadge(value: percentual),
+      ),
+    );
+  }
+}
+
+class _MembroDetalheCard extends StatelessWidget {
+  final RelatorioConectadoMembro membro;
+  final List<ConectadoEncontro> encontros;
+
+  const _MembroDetalheCard({
+    required this.membro,
+    required this.encontros,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final percentual = _membroPercentual(membro, encontros);
+    final faltas = encontros.length - membro.presencas;
+    return Card(
+      margin: const EdgeInsets.only(bottom: 10),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
-                Container(
-                  width: 42,
-                  height: 42,
-                  decoration: BoxDecoration(
-                    color: color.withOpacity(0.14),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Icon(Icons.diversity_3_outlined, color: color),
-                ),
-                const SizedBox(width: 10),
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        grupo.grupo.nome,
-                        style: const TextStyle(
-                          color: BrandColors.navy,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        _emptyDash(grupo.grupo.responsavel),
-                        style: const TextStyle(color: BrandColors.textMuted),
-                      ),
-                    ],
+                  child: Text(
+                    membro.adolescente.nome,
+                    style: const TextStyle(
+                      color: BrandColors.navy,
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
                 ),
-                _PercentBadge(value: grupo.percentual),
+                _PercentBadge(value: percentual),
               ],
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 8),
             Wrap(
               spacing: 8,
               runSpacing: 8,
               children: [
                 _InfoChip(
-                  icon: Icons.event_available,
-                  label: '${grupo.encontros.length} encontros',
-                ),
-                _InfoChip(
-                  icon: Icons.people_outline,
-                  label: '${grupo.membros.length} membros',
-                ),
-                _InfoChip(
                   icon: Icons.check_circle_outline,
-                  label: '${grupo.presencas}/${grupo.totalPossivel} presencas',
+                  label: '${membro.presencas} presencas',
+                ),
+                _InfoChip(
+                  icon: Icons.cancel_outlined,
+                  label: '$faltas faltas',
                 ),
               ],
             ),
+            if (encontros.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: encontros.map((encontro) {
+                  final presente =
+                      membro.presencasPorEncontro[encontro.id] == true;
+                  final color = presente ? BrandColors.success : BrandColors.red;
+                  return Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: presente
+                          ? BrandColors.successSoft
+                          : BrandColors.dangerSoft,
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Text(
+                      '${DateFormat('dd/MM').format(encontro.dataEncontro)} ${presente ? 'P' : 'F'}',
+                      style: TextStyle(
+                        color: color,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ],
           ],
         ),
       ),
@@ -753,6 +1070,14 @@ String _emptyDash(String? value) {
 }
 
 String _percent(double value) => '${(value * 100).round()}%';
+
+double _membroPercentual(
+  RelatorioConectadoMembro membro,
+  List<ConectadoEncontro> encontros,
+) {
+  if (encontros.isEmpty) return 0;
+  return membro.presencas / encontros.length;
+}
 
 String _capitalizar(String value) {
   if (value.isEmpty) return value;

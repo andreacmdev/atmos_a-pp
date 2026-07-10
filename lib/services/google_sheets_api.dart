@@ -40,6 +40,27 @@ class GoogleSheetsApi {
     return Adolescente.fromJson(inserted);
   }
 
+  static Future<void> confirmarTransicaoAdolescente({
+    required String adolescenteId,
+  }) async {
+    final id = int.parse(adolescenteId);
+    final hoje = _dateOnly(DateTime.now());
+
+    await _client
+        .from('conectados_membros')
+        .update({
+          'ativo': false,
+          'data_saida': hoje,
+        })
+        .eq('adolescente_id', id)
+        .eq('ativo', true);
+
+    await _client
+        .from('adolescentes')
+        .update({'ativo': false})
+        .eq('id', id);
+  }
+
   static Future<void> registrarPresenca({
     required String idAdolescente,
     required String dataCulto,
@@ -543,6 +564,21 @@ class GoogleSheetsApi {
     }
   }
 
+  static Future<ConectadoEncontro?> fetchConectadoEncontro({
+    required String grupoId,
+    required DateTime dataEncontro,
+  }) async {
+    final data = _dateOnly(dataEncontro);
+    final encontro = await _client
+        .from('conectados_encontros')
+        .select('id, grupo_id, data_encontro, observacao')
+        .eq('grupo_id', int.parse(grupoId))
+        .eq('data_encontro', data)
+        .maybeSingle();
+
+    return encontro == null ? null : ConectadoEncontro.fromJson(encontro);
+  }
+
   static Future<Set<String>> fetchConectadoPresencas({
     required String encontroId,
   }) async {
@@ -584,6 +620,36 @@ class GoogleSheetsApi {
         })
         .eq('encontro_id', int.parse(encontroId))
         .eq('adolescente_id', int.parse(adolescenteId));
+  }
+
+  static Future<ConectadoEncontro> confirmarConectadoEncontro({
+    required String grupoId,
+    required DateTime dataEncontro,
+    required List<String> adolescenteIds,
+    required Set<String> presentesIds,
+  }) async {
+    final encontro = await ensureConectadoEncontro(
+      grupoId: grupoId,
+      dataEncontro: dataEncontro,
+    );
+
+    if (adolescenteIds.isEmpty) return encontro;
+
+    final agora = DateTime.now().toIso8601String();
+    await _client.from('conectados_presencas').upsert(
+      adolescenteIds.map((adolescenteId) {
+        return {
+          'encontro_id': int.parse(encontro.id),
+          'adolescente_id': int.parse(adolescenteId),
+          'presente': presentesIds.contains(adolescenteId),
+          'registrado_por_user': _client.auth.currentUser?.id,
+          'updated_at': agora,
+        };
+      }).toList(),
+      onConflict: 'encontro_id,adolescente_id',
+    );
+
+    return encontro;
   }
 
   static Future<void> adicionarAdolescenteAoConectado({
@@ -672,7 +738,7 @@ class GoogleSheetsApi {
           .lte('data_encontro', fimIso)
           .order('data_encontro');
 
-      final encontros = encontrosData
+      var encontros = encontrosData
           .map<ConectadoEncontro>((row) => ConectadoEncontro.fromJson(row))
           .toList();
 
@@ -693,6 +759,11 @@ class GoogleSheetsApi {
               .putIfAbsent(encontroId, () => <String>{})
               .add(adolescenteId);
         }
+
+        encontros = encontros
+            .where((encontro) =>
+                presentesPorEncontro[encontro.id]?.isNotEmpty == true)
+            .toList();
       }
 
       final membrosRelatorio = membros.map((membro) {
