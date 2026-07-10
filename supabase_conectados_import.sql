@@ -1,8 +1,9 @@
 ﻿-- Importacao dos membros dos Conectados a partir do CSV enviado.
 -- Rode depois do supabase_conectados.sql.
 begin;
-create temp table tmp_conectados_csv (nome text, conectado text, responsavel text, cor_nome text) on commit drop;
-insert into tmp_conectados_csv (nome, conectado, responsavel, cor_nome) values
+drop table if exists public._tmp_conectados_csv;
+create table public._tmp_conectados_csv (nome text, conectado text, responsavel text, cor_nome text);
+insert into public._tmp_conectados_csv (nome, conectado, responsavel, cor_nome) values
   ('Gabriela de Caldas Monteiro', 'LARAMORA', 'Andressa', 'Vermelho'),
   ('Ana Carolina de Lima Padilha', 'LARAMORA', 'Andressa', 'Vermelho'),
   ('Cláudia Katharine Campos da Silva', 'LARAMORA', 'Andressa', 'Vermelho'),
@@ -241,16 +242,26 @@ as $$
   );
 $$;
 
-with matched as (
-  select distinct
+with matched_raw as (
+  select
     a.id as adolescente_id,
-    g.id as grupo_id
-  from tmp_conectados_csv c
+    g.id as grupo_id,
+    c.conectado,
+    row_number() over (
+      partition by a.id
+      order by c.conectado
+    ) as rn
+  from public._tmp_conectados_csv c
   join public.adolescentes a
     on pg_temp.norm_nome(a.nome) = pg_temp.norm_nome(c.nome)
   join public.conectados_grupos g
     on pg_temp.norm_nome(g.nome) = pg_temp.norm_nome(c.conectado)
   where a.ativo = true
+),
+matched as (
+  select adolescente_id, grupo_id
+  from matched_raw
+  where rn = 1
 )
 update public.conectados_membros atual
 set ativo = false,
@@ -260,16 +271,26 @@ where atual.adolescente_id = m.adolescente_id
   and atual.ativo = true
   and atual.grupo_id <> m.grupo_id;
 
-with matched as (
-  select distinct
+with matched_raw as (
+  select
     a.id as adolescente_id,
-    g.id as grupo_id
-  from tmp_conectados_csv c
+    g.id as grupo_id,
+    c.conectado,
+    row_number() over (
+      partition by a.id
+      order by c.conectado
+    ) as rn
+  from public._tmp_conectados_csv c
   join public.adolescentes a
     on pg_temp.norm_nome(a.nome) = pg_temp.norm_nome(c.nome)
   join public.conectados_grupos g
     on pg_temp.norm_nome(g.nome) = pg_temp.norm_nome(c.conectado)
   where a.ativo = true
+),
+matched as (
+  select adolescente_id, grupo_id
+  from matched_raw
+  where rn = 1
 )
 insert into public.conectados_membros (grupo_id, adolescente_id, data_entrada, ativo)
 select m.grupo_id, m.adolescente_id, current_date, true
@@ -278,19 +299,19 @@ where not exists (
   select 1
   from public.conectados_membros atual
   where atual.adolescente_id = m.adolescente_id
-    and atual.grupo_id = m.grupo_id
     and atual.ativo = true
-);
+)
+on conflict (adolescente_id) where ativo = true do nothing;
 
 select
-  (select count(*) from tmp_conectados_csv) as linhas_csv,
+  (select count(*) from public._tmp_conectados_csv) as linhas_csv,
   (select count(distinct a.id)
-   from tmp_conectados_csv c
+   from public._tmp_conectados_csv c
    join public.adolescentes a
      on pg_temp.norm_nome(a.nome) = pg_temp.norm_nome(c.nome)
    where a.ativo = true) as adolescentes_encontrados,
   (select count(*)
-   from tmp_conectados_csv c
+   from public._tmp_conectados_csv c
    where not exists (
      select 1
      from public.adolescentes a
@@ -299,7 +320,7 @@ select
    )) as nomes_nao_encontrados;
 
 select distinct c.nome, c.conectado
-from tmp_conectados_csv c
+from public._tmp_conectados_csv c
 where not exists (
   select 1
   from public.adolescentes a
@@ -307,5 +328,7 @@ where not exists (
     and pg_temp.norm_nome(a.nome) = pg_temp.norm_nome(c.nome)
 )
 order by c.conectado, c.nome;
+
+drop table if exists public._tmp_conectados_csv;
 
 commit;

@@ -1,5 +1,11 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:intl/intl.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
 
 import '../models/adolescente.dart';
 import '../models/conectado.dart';
@@ -256,26 +262,6 @@ class _ConectadoDetalheScreenState extends State<ConectadoDetalheScreen> {
     await _adicionarAoGrupo(escolhido);
   }
 
-  Future<void> _cadastrarNovo() async {
-    final novo = await showDialog<_NovoAdolescenteData>(
-      context: context,
-      builder: (_) => const _NovoAdolescenteDialog(),
-    );
-
-    if (novo == null) return;
-
-    try {
-      final adolescente = await GoogleSheetsApi.cadastrarAdolescente(
-        nome: novo.nome,
-        dataNascimento: novo.dataNascimento,
-        telefone: novo.telefone,
-      );
-      await _adicionarAoGrupo(adolescente);
-    } catch (e) {
-      _mostrarMensagem('Erro ao cadastrar adolescente: $e');
-    }
-  }
-
   Future<void> _adicionarAoGrupo(Adolescente adolescente) async {
     try {
       await GoogleSheetsApi.adicionarAdolescenteAoConectado(
@@ -350,6 +336,202 @@ class _ConectadoDetalheScreenState extends State<ConectadoDetalheScreen> {
     );
   }
 
+  Future<void> _exportarPdf() async {
+    try {
+      final presentes = _membros
+          .where((membro) => _presentes.contains(membro.adolescente.id))
+          .toList()
+        ..sort(
+          (a, b) => a.adolescente.nome.compareTo(b.adolescente.nome),
+        );
+      final faltantes = _membros
+          .where((membro) => !_presentes.contains(membro.adolescente.id))
+          .toList()
+        ..sort(
+          (a, b) => a.adolescente.nome.compareTo(b.adolescente.nome),
+        );
+
+      final pdf = pw.Document();
+      final fontRegular = await _loadPdfFont(
+        'assets/Roboto-Regular.ttf',
+        fallback: pw.Font.helvetica(),
+      );
+      final fontBold = await _loadPdfFont(
+        'assets/Roboto-Bold.ttf',
+        fallback: pw.Font.helveticaBold(),
+      );
+      final logoBytes = await _loadAssetBytes('assets/LOGO.png');
+      final dataTexto = DateFormat('dd/MM/yyyy').format(_dataEncontro);
+      final geradoEm = DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now());
+      final grupoColor = PdfColor.fromInt(_grupoColor(widget.grupo).value);
+
+      final titleStyle = pw.TextStyle(font: fontBold, fontSize: 18);
+      final subtitleStyle = pw.TextStyle(font: fontRegular, fontSize: 11);
+      final sectionStyle = pw.TextStyle(font: fontBold, fontSize: 14);
+      final headerStyle = pw.TextStyle(font: fontBold, fontSize: 11);
+      final rowStyle = pw.TextStyle(font: fontRegular, fontSize: 10);
+
+      pdf.addPage(
+        pw.MultiPage(
+          pageTheme: pw.PageTheme(
+            margin: const pw.EdgeInsets.all(24),
+            theme: pw.ThemeData.withFont(base: fontRegular, bold: fontBold),
+          ),
+          header: (_) => pw.Row(
+            crossAxisAlignment: pw.CrossAxisAlignment.center,
+            children: [
+              if (logoBytes != null)
+                pw.Container(
+                  width: 36,
+                  height: 36,
+                  margin: const pw.EdgeInsets.only(right: 12),
+                  child: pw.Image(pw.MemoryImage(logoBytes)),
+                ),
+              pw.Expanded(
+                child: pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    pw.Text('Relatorio de Conectados', style: titleStyle),
+                    pw.SizedBox(height: 2),
+                    pw.Text(
+                      '${widget.grupo.nome} • $dataTexto',
+                      style: subtitleStyle,
+                    ),
+                  ],
+                ),
+              ),
+              pw.Text('Gerado: $geradoEm', style: subtitleStyle),
+            ],
+          ),
+          footer: (ctx) => pw.Align(
+            alignment: pw.Alignment.centerRight,
+            child: pw.Text(
+              'Pagina ${ctx.pageNumber}/${ctx.pagesCount}',
+              style: subtitleStyle,
+            ),
+          ),
+          build: (_) => [
+            pw.SizedBox(height: 14),
+            pw.Container(
+              width: double.infinity,
+              padding: const pw.EdgeInsets.all(12),
+              decoration: pw.BoxDecoration(
+                borderRadius: pw.BorderRadius.circular(8),
+                border: pw.Border.all(color: grupoColor, width: 1.2),
+              ),
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Text(widget.grupo.nome, style: sectionStyle),
+                  pw.SizedBox(height: 4),
+                  pw.Text(
+                    'Responsavel: ${_emptyDash(widget.grupo.responsavel)}',
+                    style: subtitleStyle,
+                  ),
+                  pw.Text(
+                    'Cor: ${_emptyDash(widget.grupo.corNome)} • ${_generoLabel(widget.grupo.genero)}',
+                    style: subtitleStyle,
+                  ),
+                  pw.SizedBox(height: 10),
+                  pw.Row(
+                    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                    children: [
+                      pw.Text('Total: ${_membros.length}', style: headerStyle),
+                      pw.Text('Presentes: ${presentes.length}',
+                          style: headerStyle),
+                      pw.Text('Faltantes: ${faltantes.length}',
+                          style: headerStyle),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            pw.SizedBox(height: 18),
+            pw.Text('Presentes', style: sectionStyle),
+            pw.SizedBox(height: 8),
+            _pdfTabelaMembros(presentes, headerStyle, rowStyle),
+            pw.SizedBox(height: 18),
+            pw.Text('Faltantes', style: sectionStyle),
+            pw.SizedBox(height: 8),
+            _pdfTabelaMembros(faltantes, headerStyle, rowStyle),
+          ],
+        ),
+      );
+
+      final bytes = await pdf.save();
+      final fileName =
+          'conectados_${_slug(widget.grupo.nome)}_${DateFormat('yyyy-MM-dd').format(_dataEncontro)}.pdf';
+      await Printing.sharePdf(bytes: bytes, filename: fileName);
+      _mostrarMensagem('PDF gerado: $fileName');
+    } catch (e) {
+      _mostrarMensagem('Falha ao gerar PDF: $e');
+    }
+  }
+
+  Future<pw.Font> _loadPdfFont(String asset, {required pw.Font fallback}) async {
+    try {
+      final data = await rootBundle.load(asset);
+      return pw.Font.ttf(data);
+    } catch (_) {
+      return fallback;
+    }
+  }
+
+  Future<Uint8List?> _loadAssetBytes(String asset) async {
+    try {
+      final data = await rootBundle.load(asset);
+      return data.buffer.asUint8List();
+    } catch (_) {
+      return null;
+    }
+  }
+
+  pw.Widget _pdfTabelaMembros(
+    List<ConectadoMembro> membros,
+    pw.TextStyle headerStyle,
+    pw.TextStyle rowStyle,
+  ) {
+    if (membros.isEmpty) {
+      return pw.Text('Nenhum adolescente nesta lista.', style: rowStyle);
+    }
+
+    return pw.Table(
+      border: pw.TableBorder.all(width: 0.5, color: PdfColors.grey600),
+      columnWidths: {
+        0: const pw.FixedColumnWidth(32),
+        1: const pw.FlexColumnWidth(3),
+        2: const pw.FlexColumnWidth(1.6),
+      },
+      children: [
+        pw.TableRow(
+          decoration: const pw.BoxDecoration(color: PdfColors.grey300),
+          children: [
+            _pdfCell('#', headerStyle),
+            _pdfCell('Nome', headerStyle),
+            _pdfCell('Telefone', headerStyle),
+          ],
+        ),
+        ...List.generate(membros.length, (index) {
+          final adolescente = membros[index].adolescente;
+          return pw.TableRow(
+            children: [
+              _pdfCell('${index + 1}', rowStyle),
+              _pdfCell(adolescente.nome, rowStyle),
+              _pdfCell(_emptyDash(adolescente.telefone), rowStyle),
+            ],
+          );
+        }),
+      ],
+    );
+  }
+
+  pw.Widget _pdfCell(String text, pw.TextStyle style) {
+    return pw.Padding(
+      padding: const pw.EdgeInsets.all(6),
+      child: pw.Text(text, style: style),
+    );
+  }
+
   void _mostrarMensagem(String texto) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(texto)));
   }
@@ -375,6 +557,11 @@ class _ConectadoDetalheScreenState extends State<ConectadoDetalheScreen> {
             onPressed: _carregando ? null : _selecionarData,
           ),
           IconButton(
+            tooltip: 'Exportar PDF',
+            icon: const Icon(Icons.picture_as_pdf),
+            onPressed: _carregando || _membros.isEmpty ? null : _exportarPdf,
+          ),
+          IconButton(
             tooltip: 'Atualizar',
             icon: const Icon(Icons.refresh),
             onPressed: _carregando ? null : _carregar,
@@ -396,24 +583,13 @@ class _ConectadoDetalheScreenState extends State<ConectadoDetalheScreen> {
               const _AvisoUltimaSemana(),
             ],
             const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: _carregando ? null : _adicionarExistente,
-                    icon: const Icon(Icons.person_add_alt),
-                    label: const Text('Adicionar'),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: FilledButton.icon(
-                    onPressed: _carregando ? null : _cadastrarNovo,
-                    icon: const Icon(Icons.group_add_outlined),
-                    label: const Text('Novo'),
-                  ),
-                ),
-              ],
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: _carregando ? null : _adicionarExistente,
+                icon: const Icon(Icons.person_add_alt),
+                label: const Text('Adicionar adolescente existente'),
+              ),
             ),
             const SizedBox(height: 12),
             if (_erro != null) _ErroBox(texto: _erro!),
@@ -427,7 +603,7 @@ class _ConectadoDetalheScreenState extends State<ConectadoDetalheScreen> {
                 icon: Icons.person_off_outlined,
                 title: 'Sem adolescentes neste conectado',
                 message:
-                    'Adicione adolescentes existentes ou cadastre um novo para iniciar o acompanhamento.',
+                    'Cadastre o adolescente pelo menu principal e depois adicione aqui no conectado.',
               )
             else
               ..._membros.map(
@@ -582,135 +758,6 @@ class _AdolescentePickerState extends State<_AdolescentePicker> {
   }
 }
 
-class _NovoAdolescenteDialog extends StatefulWidget {
-  const _NovoAdolescenteDialog();
-
-  @override
-  State<_NovoAdolescenteDialog> createState() => _NovoAdolescenteDialogState();
-}
-
-class _NovoAdolescenteDialogState extends State<_NovoAdolescenteDialog> {
-  final _formKey = GlobalKey<FormState>();
-  final _nomeCtrl = TextEditingController();
-  final _dataCtrl = TextEditingController();
-  final _telefoneCtrl = TextEditingController();
-
-  @override
-  void dispose() {
-    _nomeCtrl.dispose();
-    _dataCtrl.dispose();
-    _telefoneCtrl.dispose();
-    super.dispose();
-  }
-
-  DateTime? _parseData() {
-    final text = _dataCtrl.text.trim();
-    if (text.isEmpty) return null;
-    try {
-      return DateFormat('dd/MM/yyyy').parseStrict(text);
-    } catch (_) {
-      return null;
-    }
-  }
-
-  Future<void> _selecionarData() async {
-    final selecionada = await showDatePicker(
-      context: context,
-      initialDate: _parseData() ?? DateTime(2012),
-      firstDate: DateTime(2000),
-      lastDate: DateTime.now(),
-      locale: const Locale('pt', 'BR'),
-    );
-    if (selecionada != null) {
-      _dataCtrl.text = DateFormat('dd/MM/yyyy').format(selecionada);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Novo adolescente'),
-      content: Form(
-        key: _formKey,
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextFormField(
-                controller: _nomeCtrl,
-                decoration: const InputDecoration(labelText: 'Nome *'),
-                validator: (value) {
-                  final text = value?.trim() ?? '';
-                  if (text.isEmpty) return 'Informe o nome';
-                  if (text.length < 2) return 'Nome muito curto';
-                  return null;
-                },
-              ),
-              const SizedBox(height: 10),
-              TextFormField(
-                controller: _dataCtrl,
-                decoration: InputDecoration(
-                  labelText: 'Data de nascimento',
-                  hintText: 'dd/mm/aaaa',
-                  suffixIcon: IconButton(
-                    icon: const Icon(Icons.calendar_month),
-                    onPressed: _selecionarData,
-                  ),
-                ),
-                keyboardType: TextInputType.datetime,
-                validator: (value) {
-                  final text = value?.trim() ?? '';
-                  if (text.isEmpty) return null;
-                  if (_parseData() == null) return 'Use dd/mm/aaaa';
-                  return null;
-                },
-              ),
-              const SizedBox(height: 10),
-              TextFormField(
-                controller: _telefoneCtrl,
-                decoration: const InputDecoration(labelText: 'Telefone'),
-                keyboardType: TextInputType.phone,
-              ),
-            ],
-          ),
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Cancelar'),
-        ),
-        FilledButton(
-          onPressed: () {
-            if (!_formKey.currentState!.validate()) return;
-            Navigator.pop(
-              context,
-              _NovoAdolescenteData(
-                nome: _nomeCtrl.text.trim(),
-                dataNascimento: _parseData(),
-                telefone: _telefoneCtrl.text.trim(),
-              ),
-            );
-          },
-          child: const Text('Cadastrar'),
-        ),
-      ],
-    );
-  }
-}
-
-class _NovoAdolescenteData {
-  final String nome;
-  final DateTime? dataNascimento;
-  final String? telefone;
-
-  _NovoAdolescenteData({
-    required this.nome,
-    this.dataNascimento,
-    this.telefone,
-  });
-}
-
 class _AvisoUltimaSemana extends StatelessWidget {
   const _AvisoUltimaSemana();
 
@@ -797,6 +844,18 @@ Color _grupoColor(ConectadoGrupo grupo) {
     default:
       return BrandColors.magenta;
   }
+}
+
+String _emptyDash(String? value) {
+  final text = value?.trim() ?? '';
+  return text.isEmpty ? '-' : text;
+}
+
+String _slug(String value) {
+  return _normalizar(value)
+      .replaceAll(RegExp(r'[^a-z0-9]+'), '_')
+      .replaceAll(RegExp(r'_+'), '_')
+      .replaceAll(RegExp(r'^_|_$'), '');
 }
 
 String _generoLabel(String genero) {

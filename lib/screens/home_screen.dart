@@ -8,6 +8,7 @@ import 'adolescente_form_screen.dart';
 import 'aniversariantes_screen.dart';
 import 'conectados_screen.dart';
 import 'presenca_screen.dart';
+import 'relatorio_conectados_screen.dart';
 import 'relatorio_gerencial_screen.dart';
 import 'relatorio_individual_screen.dart';
 import 'relatorio_transicao_screen.dart';
@@ -220,6 +221,20 @@ class HomeScreen extends StatelessWidget {
                     context,
                     MaterialPageRoute(
                       builder: (_) => const RelatorioGerencialScreen(),
+                    ),
+                  );
+                },
+              ),
+              const Divider(),
+              ListTile(
+                leading: const Icon(Icons.insert_chart_outlined),
+                title: const Text('Relatorio Conectados'),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const RelatorioConectadosScreen(),
                     ),
                   );
                 },

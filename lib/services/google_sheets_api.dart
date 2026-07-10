@@ -2,6 +2,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/adolescente.dart';
 import '../models/conectado.dart';
+import '../models/relatorio_conectados.dart';
 import '../models/relatorio_gerencial.dart';
 import '../models/relatorio_individual.dart';
 
@@ -484,6 +485,77 @@ class GoogleSheetsApi {
       'data_transferencia': hoje,
       'created_by': _client.auth.currentUser?.id,
     });
+  }
+
+  static Future<RelatorioConectados> fetchRelatorioConectados({
+    required DateTime mes,
+  }) async {
+    final inicio = DateTime(mes.year, mes.month);
+    final ultimoDia = DateTime(mes.year, mes.month + 1, 0);
+    final inicioIso = _dateOnly(inicio);
+    final fimIso = _dateOnly(ultimoDia);
+
+    final grupos = await fetchConectadosGrupos();
+    final gruposRelatorio = <RelatorioConectadoGrupo>[];
+
+    for (final grupo in grupos) {
+      final membros = await fetchConectadosMembros(grupoId: grupo.id);
+      final encontrosData = await _client
+          .from('conectados_encontros')
+          .select('id, grupo_id, data_encontro, observacao')
+          .eq('grupo_id', int.parse(grupo.id))
+          .gte('data_encontro', inicioIso)
+          .lte('data_encontro', fimIso)
+          .order('data_encontro');
+
+      final encontros = encontrosData
+          .map<ConectadoEncontro>((row) => ConectadoEncontro.fromJson(row))
+          .toList();
+
+      final encontroIds = encontros.map((e) => e.id).toList();
+      final presentesPorEncontro = <String, Set<String>>{};
+
+      if (encontroIds.isNotEmpty) {
+        final presencasData = await _client
+            .from('conectados_presencas')
+            .select('encontro_id, adolescente_id')
+            .eq('presente', true)
+            .inFilter('encontro_id', encontroIds);
+
+        for (final row in presencasData) {
+          final encontroId = row['encontro_id'].toString();
+          final adolescenteId = row['adolescente_id'].toString();
+          presentesPorEncontro
+              .putIfAbsent(encontroId, () => <String>{})
+              .add(adolescenteId);
+        }
+      }
+
+      final membrosRelatorio = membros.map((membro) {
+        return RelatorioConectadoMembro(
+          adolescente: membro.adolescente,
+          presencasPorEncontro: {
+            for (final encontro in encontros)
+              encontro.id: presentesPorEncontro[encontro.id]
+                      ?.contains(membro.adolescente.id) ??
+                  false,
+          },
+        );
+      }).toList();
+
+      gruposRelatorio.add(
+        RelatorioConectadoGrupo(
+          grupo: grupo,
+          encontros: encontros,
+          membros: membrosRelatorio,
+        ),
+      );
+    }
+
+    return RelatorioConectados(
+      mes: inicio,
+      grupos: gruposRelatorio,
+    );
   }
 
   static Future<List<Map<String, String>>> _getVisitantesPorPeriodo({
