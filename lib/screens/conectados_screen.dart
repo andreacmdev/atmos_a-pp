@@ -12,6 +12,7 @@ import '../models/conectado.dart';
 import '../services/google_sheets_api.dart';
 import '../theme/brand_colors.dart';
 import '../widgets/atmos_ui.dart';
+import '../widgets/conectado_logo.dart';
 
 class ConectadosScreen extends StatefulWidget {
   const ConectadosScreen({super.key});
@@ -95,17 +96,10 @@ class _ConectadosScreenState extends State<ConectadosScreen> {
                         horizontal: 14,
                         vertical: 8,
                       ),
-                      leading: Container(
-                        width: 42,
-                        height: 42,
-                        decoration: BoxDecoration(
-                          color: _grupoColor(grupo).withOpacity(0.14),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Icon(
-                          Icons.diversity_3_outlined,
-                          color: _grupoColor(grupo),
-                        ),
+                      leading: ConectadoLogo(
+                        grupo: grupo,
+                        size: 42,
+                        fallbackColor: _grupoColor(grupo),
                       ),
                       title: Text(
                         _grupoTitulo(grupo),
@@ -653,6 +647,14 @@ class _ConectadoDetalheScreenState extends State<ConectadoDetalheScreen> {
               icon: Icons.diversity_3_outlined,
               title: widget.grupo.nome,
               subtitle: 'Encontro em $dataTexto • $totalPresentes presentes',
+            ),
+            const SizedBox(height: 12),
+            Center(
+              child: ConectadoLogo(
+                grupo: widget.grupo,
+                size: 96,
+                fallbackColor: _grupoColor(widget.grupo),
+              ),
             ),
             if (_ultimaSemanaDoMes) ...[
               const SizedBox(height: 12),

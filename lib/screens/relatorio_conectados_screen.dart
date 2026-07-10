@@ -12,6 +12,7 @@ import '../models/relatorio_conectados.dart';
 import '../services/google_sheets_api.dart';
 import '../theme/brand_colors.dart';
 import '../widgets/atmos_ui.dart';
+import '../widgets/conectado_logo.dart';
 
 class RelatorioConectadosScreen extends StatefulWidget {
   const RelatorioConectadosScreen({super.key});
@@ -476,14 +477,10 @@ class _GrupoRelatorioCard extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  Container(
-                    width: 42,
-                    height: 42,
-                    decoration: BoxDecoration(
-                      color: color.withOpacity(0.14),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Icon(Icons.diversity_3_outlined, color: color),
+                  ConectadoLogo(
+                    grupo: grupo.grupo,
+                    size: 42,
+                    fallbackColor: color,
                   ),
                   const SizedBox(width: 10),
                   Expanded(
@@ -576,24 +573,36 @@ class _RelatorioConectadoDetalheScreen extends StatelessWidget {
               color: color,
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            child: Row(
               children: [
-                Text(
-                  grupo.grupo.nome,
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w900,
+                ConectadoLogo(
+                  grupo: grupo.grupo,
+                  size: 72,
+                  fallbackColor: Colors.white,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        grupo.grupo.nome,
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w900,
+                            ),
                       ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Lider: ${_emptyDash(grupo.grupo.responsavel)}',
-                  style: const TextStyle(color: Colors.white70),
-                ),
-                Text(
-                  'Mes: $mesTexto',
-                  style: const TextStyle(color: Colors.white70),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Lider: ${_emptyDash(grupo.grupo.responsavel)}',
+                        style: const TextStyle(color: Colors.white70),
+                      ),
+                      Text(
+                        'Mes: $mesTexto',
+                        style: const TextStyle(color: Colors.white70),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
