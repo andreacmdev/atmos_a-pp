@@ -253,6 +253,17 @@ class GoogleSheetsApi {
     final dataHoje = DateTime(hoje.year, hoje.month, hoje.day);
     final encontrosPorId = <String, ConectadoParticipacaoIndividual>{};
 
+    void addEncontro(Map<String, dynamic> encontro, ConectadoGrupo grupo) {
+      final id = encontro['id'].toString();
+      encontrosPorId[id] = ConectadoParticipacaoIndividual(
+        id: id,
+        data: DateTime.parse(encontro['data_encontro'].toString()),
+        grupoNome: grupo.nome,
+        responsavel: grupo.responsavel,
+        presente: false,
+      );
+    }
+
     for (final membro in membrosData) {
       final grupoId = membro['grupo_id'].toString();
       final grupo = gruposPorId[grupoId];
@@ -273,26 +284,58 @@ class GoogleSheetsApi {
           .order('data_encontro', ascending: false);
 
       for (final encontro in encontrosData) {
-        final id = encontro['id'].toString();
-        encontrosPorId[id] = ConectadoParticipacaoIndividual(
-          id: id,
-          data: DateTime.parse(encontro['data_encontro'].toString()),
-          grupoNome: grupo.nome,
-          responsavel: grupo.responsavel,
-          presente: false,
-        );
+        addEncontro(encontro, grupo);
+      }
+    }
+
+    final presencasExplicitasData = await _client
+        .from('conectados_presencas')
+        .select('encontro_id')
+        .eq('adolescente_id', adolescenteId)
+        .eq('presente', true);
+    final encontrosComPresencaExplicita = presencasExplicitasData
+        .map((row) => row['encontro_id'].toString())
+        .toSet();
+
+    final idsExplicitosForaDoPeriodo = encontrosComPresencaExplicita
+        .where((id) => !encontrosPorId.containsKey(id))
+        .toList();
+    if (idsExplicitosForaDoPeriodo.isNotEmpty) {
+      final encontrosExplicitosData = await _client
+          .from('conectados_encontros')
+          .select('id, grupo_id, data_encontro, observacao')
+          .inFilter('id', idsExplicitosForaDoPeriodo);
+
+      for (final encontro in encontrosExplicitosData) {
+        final grupo = gruposPorId[encontro['grupo_id'].toString()];
+        if (grupo == null) continue;
+        addEncontro(encontro, grupo);
       }
     }
 
     if (encontrosPorId.isNotEmpty) {
       final presencasData = await _client
           .from('conectados_presencas')
-          .select('encontro_id, presente')
-          .eq('adolescente_id', adolescenteId)
+          .select('encontro_id, adolescente_id')
+          .eq('presente', true)
           .inFilter('encontro_id', encontrosPorId.keys.toList());
+
+      final encontrosComAlgumaPresenca = <String>{};
+      final encontrosComPresencaDoAdolescente = <String>{};
 
       for (final row in presencasData) {
         final encontroId = row['encontro_id'].toString();
+        encontrosComAlgumaPresenca.add(encontroId);
+        if (row['adolescente_id'].toString() == adolescente.id) {
+          encontrosComPresencaDoAdolescente.add(encontroId);
+        }
+      }
+
+      encontrosPorId.removeWhere(
+        (id, _) => !encontrosComAlgumaPresenca.contains(id),
+      );
+
+      for (final encontroId in encontrosComPresencaDoAdolescente) {
         final encontro = encontrosPorId[encontroId];
         if (encontro == null) continue;
         encontrosPorId[encontroId] = ConectadoParticipacaoIndividual(
@@ -300,7 +343,7 @@ class GoogleSheetsApi {
           data: encontro.data,
           grupoNome: encontro.grupoNome,
           responsavel: encontro.responsavel,
-          presente: row['presente'] == true,
+          presente: true,
         );
       }
     }
