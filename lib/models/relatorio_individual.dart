@@ -1,4 +1,5 @@
 import 'adolescente.dart';
+import 'conectado.dart';
 
 class EventoParticipacao {
   final String id;
@@ -37,15 +38,75 @@ class ParticipacaoPorTipo {
   }
 }
 
+class ConectadoParticipacaoIndividual {
+  final String id;
+  final DateTime data;
+  final String grupoNome;
+  final String responsavel;
+  final bool presente;
+
+  ConectadoParticipacaoIndividual({
+    required this.id,
+    required this.data,
+    required this.grupoNome,
+    required this.responsavel,
+    required this.presente,
+  });
+}
+
+class ConectadoResumoIndividual {
+  final ConectadoGrupo? grupoAtual;
+  final List<ConectadoParticipacaoIndividual> encontros;
+
+  ConectadoResumoIndividual({
+    required this.grupoAtual,
+    required this.encontros,
+  });
+
+  int get totalEncontros => encontros.length;
+
+  int get totalPresencas =>
+      encontros.where((encontro) => encontro.presente).length;
+
+  int get totalFaltas => totalEncontros - totalPresencas;
+
+  double get percentualPresenca {
+    if (totalEncontros == 0) return 0;
+    return totalPresencas / totalEncontros;
+  }
+
+  ConectadoParticipacaoIndividual? get ultimaPresenca {
+    for (final encontro in encontros) {
+      if (encontro.presente) return encontro;
+    }
+    return null;
+  }
+
+  int get diasSemIr {
+    final ultima = ultimaPresenca;
+    if (ultima == null) return -1;
+    final hoje = DateTime.now();
+    final dataHoje = DateTime(hoje.year, hoje.month, hoje.day);
+    final dataUltima = DateTime(
+      ultima.data.year,
+      ultima.data.month,
+      ultima.data.day,
+    );
+    return dataHoje.difference(dataUltima).inDays;
+  }
+}
+
 class RelatorioIndividual {
   final Adolescente adolescente;
   final List<EventoParticipacao> eventos;
   final List<ParticipacaoPorTipo> porTipo;
+  final ConectadoResumoIndividual conectado;
 
   RelatorioIndividual({
     required this.adolescente,
     required this.eventos,
     required this.porTipo,
+    required this.conectado,
   });
 
   int get totalEventos => eventos.length;

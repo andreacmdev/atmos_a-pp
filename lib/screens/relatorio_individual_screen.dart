@@ -221,6 +221,8 @@ class _RelatorioConteudo extends StatelessWidget {
         const SizedBox(height: 16),
         _AlertaFrequencia(relatorio: relatorio),
         const SizedBox(height: 16),
+        _ConectadoResumoCard(conectado: relatorio.conectado),
+        const SizedBox(height: 16),
         Text(
           'Participação por evento',
           style: Theme.of(context).textTheme.titleMedium,
@@ -303,6 +305,204 @@ class _PessoaHeader extends StatelessWidget {
     if (!fezAniversario) idade--;
     if (idade < 0 || idade > 120) return null;
     return idade;
+  }
+}
+
+class _ConectadoResumoCard extends StatelessWidget {
+  final ConectadoResumoIndividual conectado;
+
+  const _ConectadoResumoCard({required this.conectado});
+
+  @override
+  Widget build(BuildContext context) {
+    final grupo = conectado.grupoAtual;
+    final corGrupo = _colorFromHex(grupo?.corHex) ?? BrandColors.magenta;
+    final diasSemIr = conectado.diasSemIr;
+
+    return Card(
+      margin: EdgeInsets.zero,
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: corGrupo.withOpacity(0.14),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(Icons.groups_2, color: corGrupo),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Conectado',
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      Text(
+                        grupo == null ? 'Sem grupo ativo' : grupo.nome,
+                        style: TextStyle(
+                          color: grupo == null ? Colors.black54 : corGrupo,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            if (grupo != null && grupo.responsavel.trim().isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(
+                'Lider: ${grupo.responsavel}',
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+            ],
+            const SizedBox(height: 12),
+            if (conectado.totalEncontros == 0)
+              Text(
+                grupo == null
+                    ? 'Este adolescente ainda nao possui historico nos Conectados.'
+                    : 'Ainda nao ha encontros registrados para este adolescente neste historico.',
+                style: const TextStyle(color: Colors.black54),
+              )
+            else ...[
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  _ConectadoChip(
+                    label: 'Presencas',
+                    value: conectado.totalPresencas.toString(),
+                    color: BrandColors.success,
+                  ),
+                  _ConectadoChip(
+                    label: 'Faltas',
+                    value: conectado.totalFaltas.toString(),
+                    color: BrandColors.red,
+                  ),
+                  _ConectadoChip(
+                    label: 'Frequencia',
+                    value: _percent(conectado.percentualPresenca),
+                    color: BrandColors.navy,
+                  ),
+                  _ConectadoChip(
+                    label: 'Sem ir',
+                    value: diasSemIr < 0 ? '-' : '${diasSemIr}d',
+                    color: BrandColors.yellow,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              Text(
+                'Historico nos Conectados',
+                style: Theme.of(context).textTheme.titleSmall,
+              ),
+              const SizedBox(height: 8),
+              ...conectado.encontros.map(
+                (encontro) => _ConectadoEncontroTile(encontro: encontro),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ConectadoChip extends StatelessWidget {
+  final String label;
+  final String value;
+  final Color color;
+
+  const _ConectadoChip({
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final textColor = color == BrandColors.yellow ? BrandColors.navy : color;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.12),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: Theme.of(context).textTheme.bodySmall),
+          Text(
+            value,
+            style: TextStyle(
+              color: textColor,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ConectadoEncontroTile extends StatelessWidget {
+  final ConectadoParticipacaoIndividual encontro;
+
+  const _ConectadoEncontroTile({required this.encontro});
+
+  @override
+  Widget build(BuildContext context) {
+    final cor = encontro.presente ? BrandColors.success : BrandColors.red;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color:
+            encontro.presente ? BrandColors.successSoft : BrandColors.dangerSoft,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: cor.withOpacity(0.16)),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            encontro.presente ? Icons.check_circle : Icons.cancel,
+            color: cor,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  DateFormat('dd/MM/yyyy').format(encontro.data),
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                ),
+                Text(
+                  encontro.responsavel.trim().isEmpty
+                      ? encontro.grupoNome
+                      : '${encontro.grupoNome} - ${encontro.responsavel}',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
+            ),
+          ),
+          Text(
+            encontro.presente ? 'Presente' : 'Faltou',
+            style: TextStyle(color: cor, fontWeight: FontWeight.w700),
+          ),
+        ],
+      ),
+    );
   }
 }
 
@@ -509,3 +709,12 @@ class _ErroBox extends StatelessWidget {
 }
 
 String _percent(double value) => '${(value * 100).round()}%';
+
+Color? _colorFromHex(String? hex) {
+  if (hex == null || hex.trim().isEmpty) return null;
+  final clean = hex.replaceAll('#', '').trim();
+  if (clean.length != 6) return null;
+  final value = int.tryParse(clean, radix: 16);
+  if (value == null) return null;
+  return Color(0xFF000000 | value);
+}

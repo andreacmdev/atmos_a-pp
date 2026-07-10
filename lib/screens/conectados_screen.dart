@@ -319,6 +319,41 @@ class _ConectadoDetalheScreenState extends State<ConectadoDetalheScreen> {
     }
   }
 
+  Future<void> _removerDoConectado(ConectadoMembro membro) async {
+    final confirmar = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Remover do conectado?'),
+        content: Text(
+          'Isso remove ${membro.adolescente.nome} apenas deste conectado. O cadastro no app e o historico de presencas continuam salvos.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Remover'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmar != true) return;
+
+    try {
+      await GoogleSheetsApi.removerAdolescenteDoConectado(
+        adolescenteId: membro.adolescente.id,
+        grupoId: widget.grupo.id,
+      );
+      _mostrarMensagem('${membro.adolescente.nome} removido do conectado.');
+      await _carregar();
+    } catch (e) {
+      _mostrarMensagem('Erro ao remover: $e');
+    }
+  }
+
   Future<Adolescente?> _selecionarAdolescente(
     List<Adolescente> adolescentes, {
     required String titulo,
@@ -641,10 +676,33 @@ class _ConectadoDetalheScreenState extends State<ConectadoDetalheScreen> {
                         trailing: Wrap(
                           spacing: 2,
                           children: [
-                            IconButton(
-                              tooltip: 'Transferir',
-                              icon: const Icon(Icons.swap_horiz),
-                              onPressed: () => _transferir(membro),
+                            PopupMenuButton<String>(
+                              tooltip: 'Acoes',
+                              onSelected: (value) {
+                                if (value == 'transferir') {
+                                  _transferir(membro);
+                                } else if (value == 'remover') {
+                                  _removerDoConectado(membro);
+                                }
+                              },
+                              itemBuilder: (_) => const [
+                                PopupMenuItem(
+                                  value: 'transferir',
+                                  child: ListTile(
+                                    contentPadding: EdgeInsets.zero,
+                                    leading: Icon(Icons.swap_horiz),
+                                    title: Text('Transferir'),
+                                  ),
+                                ),
+                                PopupMenuItem(
+                                  value: 'remover',
+                                  child: ListTile(
+                                    contentPadding: EdgeInsets.zero,
+                                    leading: Icon(Icons.person_remove_outlined),
+                                    title: Text('Remover do conectado'),
+                                  ),
+                                ),
+                              ],
                             ),
                             Checkbox(
                               value: presente,

@@ -142,6 +142,7 @@ class GoogleSheetsApi {
   static Future<RelatorioIndividual> fetchRelatorioIndividual({
     required Adolescente adolescente,
   }) async {
+    final conectado = await _fetchConectadoResumoIndividual(adolescente);
     final hoje = DateTime.now().toIso8601String().split('T').first;
     final eventosData = await _client
         .from('eventos')
@@ -154,6 +155,7 @@ class GoogleSheetsApi {
         adolescente: adolescente,
         eventos: const [],
         porTipo: const [],
+        conectado: conectado,
       );
     }
 
@@ -205,6 +207,110 @@ class GoogleSheetsApi {
       adolescente: adolescente,
       eventos: eventos,
       porTipo: porTipo,
+      conectado: conectado,
+    );
+  }
+
+  static Future<ConectadoResumoIndividual> _fetchConectadoResumoIndividual(
+    Adolescente adolescente,
+  ) async {
+    final adolescenteId = int.parse(adolescente.id);
+    final membrosData = await _client
+        .from('conectados_membros')
+        .select('id, grupo_id, data_entrada, data_saida, ativo')
+        .eq('adolescente_id', adolescenteId)
+        .order('data_entrada');
+
+    if (membrosData.isEmpty) {
+      return ConectadoResumoIndividual(
+        grupoAtual: null,
+        encontros: const [],
+      );
+    }
+
+    final grupoIds = membrosData
+        .map<int>((row) => int.parse(row['grupo_id'].toString()))
+        .toSet()
+        .toList();
+    final gruposData = await _client
+        .from('conectados_grupos')
+        .select('id, nome, genero, responsavel, cor_nome, cor_hex, ativo')
+        .inFilter('id', grupoIds);
+    final gruposPorId = {
+      for (final row in gruposData)
+        row['id'].toString(): ConectadoGrupo.fromJson(row),
+    };
+
+    ConectadoGrupo? grupoAtual;
+    for (final row in membrosData.reversed) {
+      if (row['ativo'] == true) {
+        grupoAtual = gruposPorId[row['grupo_id'].toString()];
+        break;
+      }
+    }
+
+    final hoje = DateTime.now();
+    final dataHoje = DateTime(hoje.year, hoje.month, hoje.day);
+    final encontrosPorId = <String, ConectadoParticipacaoIndividual>{};
+
+    for (final membro in membrosData) {
+      final grupoId = membro['grupo_id'].toString();
+      final grupo = gruposPorId[grupoId];
+      if (grupo == null) continue;
+
+      final entrada =
+          _parseDate(membro['data_entrada']) ?? DateTime(2024, 1, 1);
+      final saidaRaw = _parseDate(membro['data_saida']) ?? dataHoje;
+      final saida = saidaRaw.isAfter(dataHoje) ? dataHoje : saidaRaw;
+      if (saida.isBefore(entrada)) continue;
+
+      final encontrosData = await _client
+          .from('conectados_encontros')
+          .select('id, grupo_id, data_encontro, observacao')
+          .eq('grupo_id', int.parse(grupoId))
+          .gte('data_encontro', _dateOnly(entrada))
+          .lte('data_encontro', _dateOnly(saida))
+          .order('data_encontro', ascending: false);
+
+      for (final encontro in encontrosData) {
+        final id = encontro['id'].toString();
+        encontrosPorId[id] = ConectadoParticipacaoIndividual(
+          id: id,
+          data: DateTime.parse(encontro['data_encontro'].toString()),
+          grupoNome: grupo.nome,
+          responsavel: grupo.responsavel,
+          presente: false,
+        );
+      }
+    }
+
+    if (encontrosPorId.isNotEmpty) {
+      final presencasData = await _client
+          .from('conectados_presencas')
+          .select('encontro_id, presente')
+          .eq('adolescente_id', adolescenteId)
+          .inFilter('encontro_id', encontrosPorId.keys.toList());
+
+      for (final row in presencasData) {
+        final encontroId = row['encontro_id'].toString();
+        final encontro = encontrosPorId[encontroId];
+        if (encontro == null) continue;
+        encontrosPorId[encontroId] = ConectadoParticipacaoIndividual(
+          id: encontro.id,
+          data: encontro.data,
+          grupoNome: encontro.grupoNome,
+          responsavel: encontro.responsavel,
+          presente: row['presente'] == true,
+        );
+      }
+    }
+
+    final encontros = encontrosPorId.values.toList()
+      ..sort((a, b) => b.data.compareTo(a.data));
+
+    return ConectadoResumoIndividual(
+      grupoAtual: grupoAtual,
+      encontros: encontros,
     );
   }
 
@@ -487,6 +593,21 @@ class GoogleSheetsApi {
     });
   }
 
+  static Future<void> removerAdolescenteDoConectado({
+    required String adolescenteId,
+    required String grupoId,
+  }) async {
+    await _client
+        .from('conectados_membros')
+        .update({
+          'ativo': false,
+          'data_saida': _dateOnly(DateTime.now()),
+        })
+        .eq('adolescente_id', int.parse(adolescenteId))
+        .eq('grupo_id', int.parse(grupoId))
+        .eq('ativo', true);
+  }
+
   static Future<RelatorioConectados> fetchRelatorioConectados({
     required DateTime mes,
   }) async {
@@ -659,5 +780,10 @@ class GoogleSheetsApi {
 
   static String _dateOnly(DateTime date) {
     return date.toIso8601String().split('T').first;
+  }
+
+  static DateTime? _parseDate(dynamic value) {
+    if (value == null) return null;
+    return DateTime.tryParse(value.toString());
   }
 }
